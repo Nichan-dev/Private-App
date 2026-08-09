@@ -30,7 +30,7 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     margin: 0;
     color: var(--text);
-    background: linear-gradient(160deg, var(--bg-top), var(--bg-bottom));
+    background: var(--bg-top);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -47,49 +47,49 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.6);
   }
 
   @media (min-width: 480px) {
     body { padding: 24px; }
-    #app { height: 92vh; border-radius: 28px; }
+    #app { height: 92vh; border-radius: 16px; border: 1px solid var(--border); }
   }
 
   /* ---------- Header ---------- */
   .top-bar {
     position: relative;
     flex-shrink: 0;
-    padding: 18px 20px;
-    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-    color: white;
+    padding: 16px 20px;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
     text-align: center;
   }
   .top-bar h1 {
     margin: 0;
-    font-size: 1.15rem;
-    font-weight: 700;
+    font-size: 1.05rem;
+    font-weight: 600;
     letter-spacing: 0.2px;
   }
   .top-bar .sub {
     margin-top: 2px;
-    font-size: 0.78rem;
-    opacity: 0.85;
+    font-size: 0.76rem;
+    color: var(--muted);
   }
   #my-code-badge {
     position: absolute;
-    top: 12px;
-    right: 14px;
+    top: 14px;
+    right: 16px;
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    background: rgba(255, 255, 255, 0.18);
-    color: white;
-    border: none;
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
     padding: 4px 9px;
-    border-radius: 999px;
+    border-radius: 8px;
     font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.5px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
     cursor: pointer;
     font-family: inherit;
   }
@@ -134,14 +134,15 @@
 
   .section-card {
     margin-top: 14px;
-    padding: 14px 14px 16px;
-    border-radius: 16px;
-    background: #251e33;
+    padding: 14px;
+    border-radius: 10px;
+    background: transparent;
     border: 1px solid var(--border);
   }
   .section-title {
-    font-size: 0.85rem;
-    font-weight: 700;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--muted);
     margin-bottom: 10px;
     display: flex;
     align-items: center;
@@ -150,27 +151,26 @@
 
   .btn {
     border: none;
-    border-radius: 12px;
-    padding: 13px;
+    border-radius: 10px;
+    padding: 12px;
     font-size: 0.95rem;
     font-weight: 600;
     cursor: pointer;
     width: 100%;
     font-family: inherit;
-    transition: transform 0.08s, opacity 0.15s, box-shadow 0.15s;
+    transition: opacity 0.15s;
   }
-  .btn:active { transform: scale(0.98); }
+  .btn:active { opacity: 0.75; }
   .btn-primary {
     margin-top: 10px;
-    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    background: var(--primary-dark);
     color: white;
-    box-shadow: 0 8px 20px -8px rgba(109, 94, 247, 0.7);
   }
   .btn-outline {
     margin-top: 10px;
     background: transparent;
     color: var(--primary);
-    border: 1.5px solid var(--primary);
+    border: 1px solid var(--border);
   }
 
   #error {
@@ -194,7 +194,7 @@
     padding: 10px 16px;
     font-size: 0.78rem;
     color: var(--muted);
-    background: #1c1726;
+    background: var(--card);
     border-bottom: 1px solid var(--border);
   }
   #room-label { font-weight: 700; color: var(--text); }
@@ -221,14 +221,12 @@
     flex-direction: column;
     gap: 10px;
     padding: 16px;
-    background:
-      radial-gradient(circle at 15% 0%, #241d33 0%, transparent 45%),
-      var(--bg-top);
+    background: var(--bg-top);
   }
   .msg {
     max-width: 78%;
     padding: 9px 13px;
-    border-radius: 18px;
+    border-radius: 14px;
     font-size: 0.93rem;
     line-height: 1.35;
     animation: pop-in 0.15s ease-out;
@@ -253,23 +251,24 @@
   }
   .msg.me {
     align-self: flex-end;
-    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    background: var(--primary-dark);
     color: white;
-    border-bottom-right-radius: 5px;
+    border-bottom-right-radius: 4px;
   }
   .msg.me .meta { color: rgba(255,255,255,0.75); }
   .msg.them {
     align-self: flex-start;
     background: var(--bubble-them);
     color: var(--text);
-    border-bottom-left-radius: 5px;
+    border-bottom-left-radius: 4px;
   }
   .msg.system {
     align-self: center;
-    background: #2b2438;
+    background: transparent;
     color: var(--muted);
-    font-size: 0.75rem;
-    padding: 5px 12px;
+    font-size: 0.72rem;
+    padding: 4px 10px;
+    border: 1px solid var(--border);
     border-radius: 999px;
   }
 
@@ -302,13 +301,13 @@
     gap: 8px;
     padding: 12px 14px;
     border-top: 1px solid var(--border);
-    background: #1c1726;
+    background: var(--card);
   }
   #send-form input {
     flex: 1;
     padding: 12px 16px;
     border-radius: 999px;
-    border: 1.5px solid var(--border);
+    border: 1px solid var(--border);
     background: var(--field-bg);
     color: var(--text);
     font-size: 0.95rem;
@@ -318,21 +317,20 @@
   #send-form input::placeholder { color: var(--muted); }
   #send-form input:focus { border-color: var(--primary); background: var(--field-bg-focus); }
   #send-form button {
-    width: 44px;
-    height: 44px;
+    width: 42px;
+    height: 42px;
     flex-shrink: 0;
     border-radius: 50%;
     border: none;
-    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    background: var(--primary-dark);
     color: white;
-    font-size: 1.1rem;
+    font-size: 1.05rem;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 6px 16px -6px rgba(109, 94, 247, 0.8);
   }
-  #send-form button:active { transform: scale(0.94); }
+  #send-form button:active { opacity: 0.75; }
 
   /* ---------- Friends list ---------- */
   #friend-request-status { min-height: 1.1em; font-size: 0.8rem; color: var(--muted); margin-top: 6px; }
@@ -372,7 +370,7 @@
     padding: 10px 16px;
     font-size: 0.9rem;
     font-weight: 700;
-    background: #1c1726;
+    background: var(--card);
     border-bottom: 1px solid var(--border);
   }
   #friend-chat-back {
@@ -397,13 +395,13 @@
     gap: 8px;
     padding: 12px 14px;
     border-top: 1px solid var(--border);
-    background: #1c1726;
+    background: var(--card);
   }
   #friend-send-form input {
     flex: 1;
     padding: 12px 16px;
     border-radius: 999px;
-    border: 1.5px solid var(--border);
+    border: 1px solid var(--border);
     background: var(--field-bg);
     color: var(--text);
     font-size: 0.95rem;
@@ -411,14 +409,14 @@
     font-family: inherit;
   }
   #friend-send-form button {
-    width: 44px;
-    height: 44px;
+    width: 42px;
+    height: 42px;
     flex-shrink: 0;
     border-radius: 50%;
     border: none;
-    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    background: var(--primary-dark);
     color: white;
-    font-size: 1.1rem;
+    font-size: 1.05rem;
     cursor: pointer;
   }
 
@@ -465,26 +463,26 @@
     </div>
 
     <div class="section-card">
-      <div class="section-title">🤝 แอดเพื่อนด้วยรหัส</div>
+      <div class="section-title">แอดเพื่อนด้วยรหัส</div>
       <input type="text" id="friend-code-input" placeholder="ใส่รหัสของเพื่อน (6 ตัว)" maxlength="6" style="text-transform: uppercase;">
       <button id="send-friend-request-btn" type="button" class="btn btn-primary">ส่งคำขอเพื่อน</button>
       <div id="friend-request-status"></div>
     </div>
 
     <div class="section-card" id="friends-section" style="display: none;">
-      <div class="section-title">👥 เพื่อนของฉัน</div>
+      <div class="section-title">เพื่อนของฉัน</div>
       <div id="friends-list"></div>
     </div>
 
     <div class="section-card">
-      <div class="section-title">🆕 สร้างห้องใหม่</div>
+      <div class="section-title">สร้างห้องใหม่</div>
       <input type="text" id="room-label-input" placeholder="ชื่อห้อง (ไม่บังคับ) เช่น คุยกับเก่ง" maxlength="40">
       <input type="text" id="custom-code-input" placeholder="ตั้งรหัสห้องเอง (ไม่บังคับ)" maxlength="20" style="margin-top: 8px;">
       <button id="create-btn" type="button" class="btn btn-outline">สร้างห้อง</button>
     </div>
 
     <div class="section-card">
-      <div class="section-title">🔑 เข้าห้องที่มีอยู่</div>
+      <div class="section-title">เข้าห้องที่มีอยู่</div>
       <input type="text" id="room-input" placeholder="ใส่รหัสห้องเพื่อนที่นี่" maxlength="20">
       <button id="join-btn" type="button" class="btn btn-outline">เข้าห้อง</button>
     </div>
@@ -721,8 +719,39 @@
     // --- แชทกับเพื่อน (แยกจากระบบห้อง) ---
     const friendChatEl = document.getElementById("friend-chat");
     const friendMessagesEl = document.getElementById("friend-messages");
-    const messagesByFriend = {}; // code -> [{mine, text, time}]
+    const messagesByFriend = {}; // code -> [{id, mine, text, time, seen, readAt}]
     let activeFriendCode = null;
+    let msgIdCounter = 0;
+
+    // ข้อความที่ถูกอ่านแล้ว (ทั้งที่เราส่งและที่เพื่อนส่ง) จะถูกลบทิ้งหลังอ่านผ่านไป 30 นาที
+    const READ_DELETE_MS = 30 * 60 * 1000;
+
+    function scheduleDeletion(code, msgId) {
+      setTimeout(() => {
+        const list = messagesByFriend[code];
+        if (!list) return;
+        const idx = list.findIndex((m) => m.id === msgId);
+        if (idx === -1) return;
+        list.splice(idx, 1);
+        if (activeFriendCode === code) renderFriendMessages();
+      }, READ_DELETE_MS);
+    }
+
+    function markRead(code, msg) {
+      if (msg.readAt) return;
+      msg.readAt = Date.now();
+      msg.seen = true;
+      scheduleDeletion(code, msg.id);
+    }
+
+    function markAllTheirsRead(code) {
+      const list = messagesByFriend[code] || [];
+      let changed = false;
+      for (const m of list) {
+        if (!m.mine && !m.readAt) { markRead(code, m); changed = true; }
+      }
+      if (changed && activeFriendCode === code) renderFriendMessages();
+    }
 
     function openFriendChat(code) {
       activeFriendCode = code;
@@ -733,6 +762,7 @@
       friendChatEl.style.display = "flex";
       renderFriendMessages();
       socket.emit("friend_seen", { code });
+      markAllTheirsRead(code);
     }
 
     document.getElementById("friend-chat-back").onclick = () => {
@@ -758,11 +788,13 @@
 
     socket.on("friend_message", (data) => {
       const list = (messagesByFriend[data.from] = messagesByFriend[data.from] || []);
-      list.push({ mine: false, text: data.text, time: data.time });
+      const msg = { id: ++msgIdCounter, mine: false, text: data.text, time: data.time, seen: false, readAt: null };
+      list.push(msg);
       if (activeFriendCode === data.from) {
         renderFriendMessages();
         if (document.visibilityState === "visible") {
           socket.emit("friend_seen", { code: data.from });
+          markRead(data.from, msg);
         } else {
           hasUnseenFriendIncoming = true;
         }
@@ -774,15 +806,17 @@
     socket.on("friend_seen", (data) => {
       const list = messagesByFriend[data.code];
       if (!list) return;
-      for (let i = list.length - 1; i >= 0; i--) {
-        if (list[i].mine) { list[i].seen = true; break; }
+      let changed = false;
+      for (const m of list) {
+        if (m.mine && !m.readAt) { markRead(data.code, m); changed = true; }
       }
-      if (activeFriendCode === data.code) renderFriendMessages();
+      if (changed && activeFriendCode === data.code) renderFriendMessages();
     });
 
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible" && hasUnseenFriendIncoming && activeFriendCode) {
         socket.emit("friend_seen", { code: activeFriendCode });
+        markAllTheirsRead(activeFriendCode);
         hasUnseenFriendIncoming = false;
       }
     });
@@ -794,7 +828,7 @@
       if (!text || !activeFriendCode) return;
       socket.emit("friend_message", { code: activeFriendCode, text });
       const list = (messagesByFriend[activeFriendCode] = messagesByFriend[activeFriendCode] || []);
-      list.push({ mine: true, text, time: new Date().toTimeString().slice(0, 5) });
+      list.push({ id: ++msgIdCounter, mine: true, text, time: new Date().toTimeString().slice(0, 5), seen: false, readAt: null });
       renderFriendMessages();
       input.value = "";
       stopFriendTyping();
