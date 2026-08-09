@@ -347,6 +347,8 @@
   }
   .friend-row:last-child { margin-bottom: 0; }
   .friend-row .friend-code { font-weight: 700; letter-spacing: 0.5px; }
+  .friend-row-actions { display: flex; align-items: center; gap: 6px; }
+  .friend-edit-btn { background: transparent !important; padding: 4px !important; font-size: 0.9rem; }
   .friend-row button {
     border: none;
     background: var(--primary);
@@ -651,7 +653,7 @@
     function addFriend(code) {
       const friends = getFriends();
       if (!friends.some((f) => f.code === code)) {
-        friends.push({ code });
+        friends.push({ code, nickname: "" });
         localStorage.setItem("myFriends", JSON.stringify(friends));
       }
       renderFriends();
@@ -672,12 +674,44 @@
       for (const f of friends) {
         const row = document.createElement("div");
         row.className = "friend-row";
-        row.innerHTML = `<span class="friend-code">${f.code}</span>`;
-        const btn = document.createElement("button");
-        btn.textContent = "แชท";
-        btn.onclick = () => openFriendChat(f.code);
-        row.appendChild(btn);
+        row.innerHTML = `<span class="friend-code">${escapeHtml(getFriendLabel(f.code))}</span>`;
+
+        const actions = document.createElement("div");
+        actions.className = "friend-row-actions";
+
+        const editBtn = document.createElement("button");
+        editBtn.textContent = "✏️";
+        editBtn.title = "ตั้งชื่อเล่น";
+        editBtn.className = "friend-edit-btn";
+        editBtn.onclick = () => renameFriend(f.code);
+        actions.appendChild(editBtn);
+
+        const chatBtn = document.createElement("button");
+        chatBtn.textContent = "แชท";
+        chatBtn.onclick = () => openFriendChat(f.code);
+        actions.appendChild(chatBtn);
+
+        row.appendChild(actions);
         list.appendChild(row);
+      }
+    }
+
+    function getFriendLabel(code) {
+      const friend = getFriends().find((f) => f.code === code);
+      return friend && friend.nickname ? friend.nickname : code;
+    }
+
+    function renameFriend(code) {
+      const friends = getFriends();
+      const friend = friends.find((f) => f.code === code);
+      if (!friend) return;
+      const nickname = prompt("ตั้งชื่อเล่นให้เพื่อน", friend.nickname || "");
+      if (nickname === null) return; // กดยกเลิก
+      friend.nickname = nickname.trim().slice(0, 30);
+      localStorage.setItem("myFriends", JSON.stringify(friends));
+      renderFriends();
+      if (activeFriendCode === code) {
+        document.getElementById("friend-chat-name").textContent = getFriendLabel(code);
       }
     }
 
@@ -691,7 +725,7 @@
 
     function openFriendChat(code) {
       activeFriendCode = code;
-      document.getElementById("friend-chat-name").textContent = code;
+      document.getElementById("friend-chat-name").textContent = getFriendLabel(code);
       setupEl.style.display = "none";
       chatEl.style.display = "none";
       friendChatEl.style.display = "flex";
@@ -710,7 +744,7 @@
       for (const m of list) {
         const div = document.createElement("div");
         div.className = "msg " + (m.mine ? "me" : "them");
-        div.innerHTML = `<div class="meta">${m.mine ? "คุณ" : activeFriendCode} · ${m.time}</div>${escapeHtml(m.text)}`;
+        div.innerHTML = `<div class="meta">${m.mine ? "คุณ" : escapeHtml(getFriendLabel(activeFriendCode))} · ${m.time}</div>${escapeHtml(m.text)}`;
         friendMessagesEl.appendChild(div);
       }
       friendMessagesEl.scrollTop = friendMessagesEl.scrollHeight;
