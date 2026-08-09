@@ -91,6 +91,15 @@ def on_message(data):
     )
 
 
+@socketio.on("seen")
+def on_seen(data):
+    room = data.get("room")
+    if not room or room not in rooms or request.sid not in rooms[room]["members"]:
+        return
+    reader_name = rooms[room]["members"][request.sid]
+    emit("seen", {"name": reader_name}, room=room, include_self=False)
+
+
 @socketio.on("disconnect")
 def on_disconnect():
     for room, info in list(rooms.items()):

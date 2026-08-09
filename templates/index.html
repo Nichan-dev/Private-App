@@ -32,6 +32,7 @@
   #messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 8px 0; }
   .msg { max-width: 75%; padding: 8px 12px; border-radius: 12px; font-size: 0.95rem; }
   .msg .meta { font-size: 0.7rem; opacity: 0.6; margin-bottom: 2px; }
+  .msg .seen { font-size: 0.68rem; opacity: 0.75; text-align: right; margin-top: 2px; min-height: 1em; }
   .msg.me { align-self: flex-end; background: #2563eb; color: white; }
   .msg.them { align-self: flex-start; background: white; border: 1px solid #ddd; }
   .msg.system { align-self: center; background: transparent; color: #888; font-size: 0.8rem; }
@@ -127,8 +128,33 @@
       addMessage({ system: true, text: data.text, time: data.time });
     });
 
+    let lastMineMsgEl = null;
+    let hasUnseenIncoming = false;
+
     socket.on("message", (data) => {
-      addMessage({ mine: data.name === myName, name: data.name, text: data.text, time: data.time });
+      const mine = data.name === myName;
+      const div = addMessage({ mine, name: data.name, text: data.text, time: data.time });
+      if (mine) {
+        lastMineMsgEl = div;
+      } else if (document.visibilityState === "visible") {
+        socket.emit("seen", { room: window._room });
+      } else {
+        hasUnseenIncoming = true;
+      }
+    });
+
+    socket.on("seen", () => {
+      if (lastMineMsgEl) {
+        const seenEl = lastMineMsgEl.querySelector(".seen");
+        if (seenEl) seenEl.textContent = "อ่านแล้ว";
+      }
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible" && hasUnseenIncoming) {
+        socket.emit("seen", { room: window._room });
+        hasUnseenIncoming = false;
+      }
     });
 
     function addMessage({ system, mine, name, text, time }) {
@@ -137,10 +163,12 @@
       if (system) {
         div.textContent = text;
       } else {
-        div.innerHTML = `<div class="meta">${name} · ${time}</div>${escapeHtml(text)}`;
+        div.innerHTML = `<div class="meta">${name} · ${time}</div>${escapeHtml(text)}` +
+          (mine ? `<div class="seen"></div>` : "");
       }
       messagesEl.appendChild(div);
       messagesEl.scrollTop = messagesEl.scrollHeight;
+      return div;
     }
 
     function escapeHtml(str) {
