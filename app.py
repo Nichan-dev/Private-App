@@ -63,9 +63,23 @@ def create_room():
     return jsonify({"room": code, "label": label})
 
 
-@socketio.on("connect")
-def on_connect():
-    code = gen_online_code()
+ONLINE_CODE_PATTERN = re.compile(r"^[A-Z2-9]{6}$")
+
+
+@socketio.on("register_code")
+def on_register_code(data):
+    requested_code = (data.get("code") or "").strip().upper()
+
+    if requested_code and ONLINE_CODE_PATTERN.match(requested_code):
+        # เคยมีรหัสอยู่แล้ว (เก็บไว้ใน localStorage ฝั่งเบราว์เซอร์) -> ใช้รหัสเดิมต่อ
+        # ถ้ามีการเชื่อมต่อเก่าค้างอยู่ (เช่น รีเฟรชหน้า) ให้ทับด้วยการเชื่อมต่อล่าสุด
+        old_sid = online_codes.get(requested_code)
+        if old_sid and old_sid != request.sid:
+            sid_to_code.pop(old_sid, None)
+        code = requested_code
+    else:
+        code = gen_online_code()
+
     online_codes[code] = request.sid
     sid_to_code[request.sid] = code
     emit("your_code", {"code": code})

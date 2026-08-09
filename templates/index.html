@@ -428,13 +428,18 @@
       if (e.key === "Enter") { e.preventDefault(); document.getElementById("join-btn").click(); }
     });
 
-    // --- รหัสส่วนตัว + แอดเพื่อน ---
+    // --- รหัสส่วนตัว (คงที่ถาวรต่อเบราว์เซอร์นี้) + แอดเพื่อน ---
     let myCode = "";
     const myCodeEl = document.getElementById("my-code");
+
+    socket.on("connect", () => {
+      socket.emit("register_code", { code: localStorage.getItem("myChatCode") || "" });
+    });
 
     socket.on("your_code", (data) => {
       myCode = data.code;
       myCodeEl.textContent = myCode;
+      localStorage.setItem("myChatCode", myCode);
     });
 
     document.getElementById("my-code-badge").addEventListener("click", () => {
