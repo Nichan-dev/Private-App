@@ -6,72 +6,351 @@
 <title>แชทง่ายๆ</title>
 <style>
   * { box-sizing: border-box; }
+
+  :root {
+    --primary: #6d5ef7;
+    --primary-dark: #5642e0;
+    --bg-top: #eef0ff;
+    --bg-bottom: #fdf1f7;
+    --card: #ffffff;
+    --text: #1f2233;
+    --muted: #8b8fa3;
+    --border: #ececf4;
+    --bubble-them: #f2f2f8;
+    --danger: #e0335f;
+  }
+
+  html, body {
+    height: 100%;
+  }
+
   body {
-    font-family: -apple-system, sans-serif;
-    max-width: 480px;
-    margin: 0 auto;
-    padding: 16px;
-    background: #f4f4f6;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    margin: 0;
+    color: var(--text);
+    background: linear-gradient(160deg, var(--bg-top), var(--bg-bottom));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+
+  #app {
+    width: 100%;
+    max-width: 460px;
     height: 100vh;
+    max-height: 900px;
+    background: var(--card);
     display: flex;
     flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 30px 60px -20px rgba(80, 60, 200, 0.25);
   }
-  h1 { font-size: 1.3rem; text-align: center; }
 
-  #setup { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
-  #setup input, #setup button { padding: 12px; font-size: 1rem; border-radius: 8px; border: 1px solid #ccc; }
-  #setup button { background: #2563eb; color: white; border: none; cursor: pointer; }
-  #setup button:active { opacity: 0.8; }
-  #room-actions { display: flex; gap: 8px; }
-  #room-actions > * { flex: 1; }
-  #error { color: #c00; text-align: center; min-height: 1.2em; }
+  @media (min-width: 480px) {
+    body { padding: 24px; }
+    #app { height: 92vh; border-radius: 28px; }
+  }
 
+  /* ---------- Header ---------- */
+  .top-bar {
+    flex-shrink: 0;
+    padding: 18px 20px;
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: white;
+    text-align: center;
+  }
+  .top-bar h1 {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+  }
+  .top-bar .sub {
+    margin-top: 2px;
+    font-size: 0.78rem;
+    opacity: 0.85;
+  }
+
+  /* ---------- Setup screen ---------- */
+  #setup {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 22px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .field-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--muted);
+    margin: 14px 0 2px;
+  }
+  #setup input {
+    width: 100%;
+    padding: 13px 14px;
+    font-size: 0.95rem;
+    border-radius: 12px;
+    border: 1.5px solid var(--border);
+    background: #fafafd;
+    outline: none;
+    transition: border-color 0.15s, background 0.15s;
+    font-family: inherit;
+  }
+  #setup input:focus {
+    border-color: var(--primary);
+    background: white;
+  }
+  .name-row { margin-bottom: 4px; }
+
+  .section-card {
+    margin-top: 14px;
+    padding: 14px 14px 16px;
+    border-radius: 16px;
+    background: #f8f8fc;
+    border: 1px solid var(--border);
+  }
+  .section-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .btn {
+    border: none;
+    border-radius: 12px;
+    padding: 13px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    font-family: inherit;
+    transition: transform 0.08s, opacity 0.15s, box-shadow 0.15s;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn-primary {
+    margin-top: 10px;
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: white;
+    box-shadow: 0 8px 20px -8px rgba(109, 94, 247, 0.7);
+  }
+  .btn-outline {
+    margin-top: 10px;
+    background: white;
+    color: var(--primary-dark);
+    border: 1.5px solid var(--primary);
+  }
+
+  #error {
+    color: var(--danger);
+    text-align: center;
+    min-height: 1.2em;
+    font-size: 0.85rem;
+    margin-top: 10px;
+    font-weight: 600;
+  }
+
+  /* ---------- Chat screen ---------- */
   #chat { display: none; flex-direction: column; flex: 1; min-height: 0; }
-  #room-info { text-align: center; font-size: 0.85rem; color: #666; margin-bottom: 8px; }
-  #room-info b { color: #111; font-size: 1.1rem; }
-  #messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 8px 0; }
-  .msg { max-width: 75%; padding: 8px 12px; border-radius: 12px; font-size: 0.95rem; }
-  .msg .meta { font-size: 0.7rem; opacity: 0.6; margin-bottom: 2px; }
-  .msg .seen { font-size: 0.68rem; opacity: 0.75; text-align: right; margin-top: 2px; min-height: 1em; }
-  .msg.me { align-self: flex-end; background: #2563eb; color: white; }
-  .msg.them { align-self: flex-start; background: white; border: 1px solid #ddd; }
-  .msg.system { align-self: center; background: transparent; color: #888; font-size: 0.8rem; }
 
-  #typing-indicator { font-size: 0.78rem; color: #888; min-height: 1.2em; padding-left: 4px; }
-  #send-form { display: flex; gap: 8px; padding-top: 8px; }
-  #send-form input { flex: 1; padding: 12px; border-radius: 20px; border: 1px solid #ccc; font-size: 1rem; }
-  #send-form button { padding: 12px 18px; border-radius: 20px; border: none; background: #2563eb; color: white; font-size: 1rem; }
+  #room-info {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 16px;
+    font-size: 0.78rem;
+    color: var(--muted);
+    background: #fbfbfe;
+    border-bottom: 1px solid var(--border);
+  }
+  #room-label { font-weight: 700; color: var(--text); }
+  #room-code-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: #efecff;
+    color: var(--primary-dark);
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 999px;
+    cursor: pointer;
+    border: none;
+    font-size: 0.78rem;
+    font-family: inherit;
+  }
+  #room-code-pill:active { transform: scale(0.96); }
+
+  #messages {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px;
+    background:
+      radial-gradient(circle at 15% 0%, #f6f4ff 0%, transparent 45%),
+      #ffffff;
+  }
+  .msg {
+    max-width: 78%;
+    padding: 9px 13px;
+    border-radius: 18px;
+    font-size: 0.93rem;
+    line-height: 1.35;
+    animation: pop-in 0.15s ease-out;
+  }
+  @keyframes pop-in {
+    from { opacity: 0; transform: translateY(4px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .msg .meta {
+    font-size: 0.68rem;
+    opacity: 0.65;
+    margin-bottom: 3px;
+    font-weight: 600;
+  }
+  .msg .seen {
+    font-size: 0.66rem;
+    opacity: 0.8;
+    text-align: right;
+    margin-top: 3px;
+    min-height: 1em;
+    font-weight: 600;
+  }
+  .msg.me {
+    align-self: flex-end;
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: white;
+    border-bottom-right-radius: 5px;
+  }
+  .msg.me .meta { color: rgba(255,255,255,0.75); }
+  .msg.them {
+    align-self: flex-start;
+    background: var(--bubble-them);
+    color: var(--text);
+    border-bottom-left-radius: 5px;
+  }
+  .msg.system {
+    align-self: center;
+    background: #f3f1fb;
+    color: var(--muted);
+    font-size: 0.75rem;
+    padding: 5px 12px;
+    border-radius: 999px;
+  }
+
+  #typing-indicator {
+    flex-shrink: 0;
+    font-size: 0.78rem;
+    color: var(--muted);
+    min-height: 1.3rem;
+    padding: 2px 18px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .typing-dots { display: inline-flex; gap: 3px; }
+  .typing-dots span {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--muted);
+    animation: bounce 1.2s infinite ease-in-out;
+  }
+  .typing-dots span:nth-child(2) { animation-delay: 0.15s; }
+  .typing-dots span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes bounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+    30% { transform: translateY(-3px); opacity: 1; }
+  }
+
+  #send-form {
+    flex-shrink: 0;
+    display: flex;
+    gap: 8px;
+    padding: 12px 14px;
+    border-top: 1px solid var(--border);
+    background: white;
+  }
+  #send-form input {
+    flex: 1;
+    padding: 12px 16px;
+    border-radius: 999px;
+    border: 1.5px solid var(--border);
+    background: #fafafd;
+    font-size: 0.95rem;
+    outline: none;
+    font-family: inherit;
+  }
+  #send-form input:focus { border-color: var(--primary); background: white; }
+  #send-form button {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    border: none;
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: white;
+    font-size: 1.1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 6px 16px -6px rgba(109, 94, 247, 0.8);
+  }
+  #send-form button:active { transform: scale(0.94); }
 </style>
 </head>
 <body>
-  <h1>💬 แชทง่ายๆ</h1>
+<div id="app">
+  <div class="top-bar">
+    <h1>💬 แชทง่ายๆ</h1>
+    <div class="sub" id="top-sub">คุยกันแบบส่วนตัว ไม่มีประวัติค้าง</div>
+  </div>
 
   <div id="setup">
-    <input type="text" id="name-input" placeholder="ชื่อที่จะใช้คุย" maxlength="30">
+    <div class="name-row">
+      <div class="field-label">ชื่อของคุณ</div>
+      <input type="text" id="name-input" placeholder="เช่น เก่ง" maxlength="30">
+    </div>
 
-    <p style="margin: 4px 0 -4px; font-weight: 600;">สร้างห้องใหม่</p>
-    <input type="text" id="room-label-input" placeholder="ชื่อห้อง (ไม่บังคับ) เช่น คุยกับเก่ง" maxlength="40">
-    <input type="text" id="custom-code-input" placeholder="ตั้งรหัสห้องเอง (ไม่บังคับ) เช่น kengmai" maxlength="20">
-    <button id="create-btn" type="button">สร้างห้อง</button>
+    <div class="section-card">
+      <div class="section-title">🆕 สร้างห้องใหม่</div>
+      <input type="text" id="room-label-input" placeholder="ชื่อห้อง (ไม่บังคับ) เช่น คุยกับเก่ง" maxlength="40">
+      <input type="text" id="custom-code-input" placeholder="ตั้งรหัสห้องเอง (ไม่บังคับ)" maxlength="20" style="margin-top: 8px;">
+      <button id="create-btn" type="button" class="btn btn-primary">สร้างห้อง</button>
+    </div>
 
-    <p style="margin: 12px 0 -4px; font-weight: 600;">หรือเข้าห้องที่มีอยู่</p>
-    <input type="text" id="room-input" placeholder="ใส่รหัสห้องเพื่อนที่นี่" maxlength="20">
-    <button id="join-btn" type="button">เข้าห้อง</button>
+    <div class="section-card">
+      <div class="section-title">🔑 เข้าห้องที่มีอยู่</div>
+      <input type="text" id="room-input" placeholder="ใส่รหัสห้องเพื่อนที่นี่" maxlength="20">
+      <button id="join-btn" type="button" class="btn btn-outline">เข้าห้อง</button>
+    </div>
+
     <div id="error"></div>
   </div>
 
   <div id="chat">
     <div id="room-info">
       <span id="room-label"></span>
-      รหัสห้อง: <b id="room-code"></b> (ส่งรหัสนี้ให้เพื่อน)
+      <button id="room-code-pill" type="button" title="แตะเพื่อคัดลอก">
+        <span id="room-code"></span> 📋
+      </button>
     </div>
     <div id="messages"></div>
     <div id="typing-indicator"></div>
     <form id="send-form">
       <input type="text" id="text-input" placeholder="พิมพ์ข้อความ..." autocomplete="off">
-      <button type="submit">ส่ง</button>
+      <button type="submit" aria-label="ส่ง">➤</button>
     </form>
   </div>
+</div>
 
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <script>
@@ -109,6 +388,10 @@
       doJoin(room);
     };
 
+    document.getElementById("room-input").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); document.getElementById("join-btn").click(); }
+    });
+
     function doJoin(room) {
       myName = document.getElementById("name-input").value.trim() || "ไม่ระบุชื่อ";
       socket.emit("join", { room, name: myName });
@@ -122,8 +405,13 @@
       setupEl.style.display = "none";
       chatEl.style.display = "flex";
       roomCodeEl.textContent = data.room;
-      document.getElementById("room-label").textContent = data.label ? data.label + " · " : "";
+      document.getElementById("room-label").textContent = data.label ? data.label : "ห้องแชท";
       window._room = data.room;
+    });
+
+    document.getElementById("room-code-pill").addEventListener("click", () => {
+      const code = roomCodeEl.textContent;
+      if (navigator.clipboard) navigator.clipboard.writeText(code).catch(() => {});
     });
 
     socket.on("system", (data) => {
@@ -148,7 +436,7 @@
     socket.on("seen", () => {
       if (lastMineMsgEl) {
         const seenEl = lastMineMsgEl.querySelector(".seen");
-        if (seenEl) seenEl.textContent = "อ่านแล้ว";
+        if (seenEl) seenEl.textContent = "อ่านแล้ว ✓✓";
       }
     });
 
@@ -165,7 +453,7 @@
       if (system) {
         div.textContent = text;
       } else {
-        div.innerHTML = `<div class="meta">${name} · ${time}</div>${escapeHtml(text)}` +
+        div.innerHTML = `<div class="meta">${mine ? "คุณ" : escapeHtml(name)} · ${time}</div>${escapeHtml(text)}` +
           (mine ? `<div class="seen"></div>` : "");
       }
       messagesEl.appendChild(div);
@@ -212,7 +500,9 @@
 
     socket.on("typing", (data) => {
       if (data.name === myName) return;
-      typingEl.textContent = data.typing ? `${data.name} กำลังพิมพ์...` : "";
+      typingEl.innerHTML = data.typing
+        ? `${escapeHtml(data.name)} กำลังพิมพ์ <span class="typing-dots"><span></span><span></span><span></span></span>`
+        : "";
     });
   </script>
 </body>
