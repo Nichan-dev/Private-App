@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>แชทง่ายๆ</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, sans-serif;
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 16px;
+    background: #f4f4f6;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  h1 { font-size: 1.3rem; text-align: center; }
+
+  #setup { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+  #setup input, #setup button { padding: 12px; font-size: 1rem; border-radius: 8px; border: 1px solid #ccc; }
+  #setup button { background: #2563eb; color: white; border: none; cursor: pointer; }
+  #setup button:active { opacity: 0.8; }
+  #room-actions { display: flex; gap: 8px; }
+  #room-actions > * { flex: 1; }
+  #error { color: #c00; text-align: center; min-height: 1.2em; }
+
+  #chat { display: none; flex-direction: column; flex: 1; min-height: 0; }
+  #room-info { text-align: center; font-size: 0.85rem; color: #666; margin-bottom: 8px; }
+  #room-info b { color: #111; font-size: 1.1rem; }
+  #messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 8px 0; }
+  .msg { max-width: 75%; padding: 8px 12px; border-radius: 12px; font-size: 0.95rem; }
+  .msg .meta { font-size: 0.7rem; opacity: 0.6; margin-bottom: 2px; }
+  .msg.me { align-self: flex-end; background: #2563eb; color: white; }
+  .msg.them { align-self: flex-start; background: white; border: 1px solid #ddd; }
+  .msg.system { align-self: center; background: transparent; color: #888; font-size: 0.8rem; }
+
+  #send-form { display: flex; gap: 8px; padding-top: 8px; }
+  #send-form input { flex: 1; padding: 12px; border-radius: 20px; border: 1px solid #ccc; font-size: 1rem; }
+  #send-form button { padding: 12px 18px; border-radius: 20px; border: none; background: #2563eb; color: white; font-size: 1rem; }
+</style>
+</head>
+<body>
+  <h1>💬 แชทง่ายๆ</h1>
+
+  <div id="setup">
+    <input type="text" id="name-input" placeholder="ชื่อที่จะใช้คุย" maxlength="30">
+
+    <p style="margin: 4px 0 -4px; font-weight: 600;">สร้างห้องใหม่</p>
+    <input type="text" id="room-label-input" placeholder="ชื่อห้อง (ไม่บังคับ) เช่น คุยกับเก่ง" maxlength="40">
+    <input type="text" id="custom-code-input" placeholder="ตั้งรหัสห้องเอง (ไม่บังคับ) เช่น kengmai" maxlength="20">
+    <button id="create-btn" type="button">สร้างห้อง</button>
+
+    <p style="margin: 12px 0 -4px; font-weight: 600;">หรือเข้าห้องที่มีอยู่</p>
+    <input type="text" id="room-input" placeholder="ใส่รหัสห้องเพื่อนที่นี่" maxlength="20">
+    <button id="join-btn" type="button">เข้าห้อง</button>
+    <div id="error"></div>
+  </div>
+
+  <div id="chat">
+    <div id="room-info">
+      <span id="room-label"></span>
+      รหัสห้อง: <b id="room-code"></b> (ส่งรหัสนี้ให้เพื่อน)
+    </div>
+    <div id="messages"></div>
+    <form id="send-form">
+      <input type="text" id="text-input" placeholder="พิมพ์ข้อความ..." autocomplete="off">
+      <button type="submit">ส่ง</button>
+    </form>
+  </div>
+
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script>
+    const socket = io();
+    let myName = "";
+
+    const setupEl = document.getElementById("setup");
+    const chatEl = document.getElementById("chat");
+    const errorEl = document.getElementById("error");
+    const messagesEl = document.getElementById("messages");
+    const roomCodeEl = document.getElementById("room-code");
+
+    document.getElementById("create-btn").onclick = async () => {
+      errorEl.textContent = "";
+      const label = document.getElementById("room-label-input").value.trim();
+      const code = document.getElementById("custom-code-input").value.trim();
+      const res = await fetch("/api/create-room", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label, code }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        errorEl.textContent = data.error || "สร้างห้องไม่สำเร็จ";
+        return;
+      }
+      document.getElementById("room-input").value = data.room;
+      doJoin(data.room);
+    };
+
+    document.getElementById("join-btn").onclick = () => {
+      errorEl.textContent = "";
+      const room = document.getElementById("room-input").value.trim();
+      if (!room) { errorEl.textContent = "กรอกรหัสห้องก่อนครับ"; return; }
+      doJoin(room);
+    };
+
+    function doJoin(room) {
+      myName = document.getElementById("name-input").value.trim() || "ไม่ระบุชื่อ";
+      socket.emit("join", { room, name: myName });
+    }
+
+    socket.on("join_error", (data) => {
+      errorEl.textContent = data.message;
+    });
+
+    socket.on("joined", (data) => {
+      setupEl.style.display = "none";
+      chatEl.style.display = "flex";
+      roomCodeEl.textContent = data.room;
+      document.getElementById("room-label").textContent = data.label ? data.label + " · " : "";
+      window._room = data.room;
+    });
+
+    socket.on("system", (data) => {
+      addMessage({ system: true, text: data.text, time: data.time });
+    });
+
+    socket.on("message", (data) => {
+      addMessage({ mine: data.name === myName, name: data.name, text: data.text, time: data.time });
+    });
+
+    function addMessage({ system, mine, name, text, time }) {
+      const div = document.createElement("div");
+      div.className = "msg " + (system ? "system" : mine ? "me" : "them");
+      if (system) {
+        div.textContent = text;
+      } else {
+        div.innerHTML = `<div class="meta">${name} · ${time}</div>${escapeHtml(text)}`;
+      }
+      messagesEl.appendChild(div);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function escapeHtml(str) {
+      const d = document.createElement("div");
+      d.textContent = str;
+      return d.innerHTML;
+    }
+
+    document.getElementById("send-form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const input = document.getElementById("text-input");
+      const text = input.value.trim();
+      if (!text) return;
+      socket.emit("message", { room: window._room, text });
+      input.value = "";
+    });
+  </script>
+</body>
+</html>
