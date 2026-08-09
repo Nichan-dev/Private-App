@@ -37,6 +37,7 @@
   .msg.them { align-self: flex-start; background: white; border: 1px solid #ddd; }
   .msg.system { align-self: center; background: transparent; color: #888; font-size: 0.8rem; }
 
+  #typing-indicator { font-size: 0.78rem; color: #888; min-height: 1.2em; padding-left: 4px; }
   #send-form { display: flex; gap: 8px; padding-top: 8px; }
   #send-form input { flex: 1; padding: 12px; border-radius: 20px; border: 1px solid #ccc; font-size: 1rem; }
   #send-form button { padding: 12px 18px; border-radius: 20px; border: none; background: #2563eb; color: white; font-size: 1rem; }
@@ -65,6 +66,7 @@
       รหัสห้อง: <b id="room-code"></b> (ส่งรหัสนี้ให้เพื่อน)
     </div>
     <div id="messages"></div>
+    <div id="typing-indicator"></div>
     <form id="send-form">
       <input type="text" id="text-input" placeholder="พิมพ์ข้อความ..." autocomplete="off">
       <button type="submit">ส่ง</button>
@@ -184,6 +186,33 @@
       if (!text) return;
       socket.emit("message", { room: window._room, text });
       input.value = "";
+      stopTyping();
+    });
+
+    const typingEl = document.getElementById("typing-indicator");
+    let isTyping = false;
+    let typingTimeout = null;
+
+    document.getElementById("text-input").addEventListener("input", () => {
+      if (!isTyping) {
+        isTyping = true;
+        socket.emit("typing", { room: window._room, typing: true });
+      }
+      clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(stopTyping, 1500);
+    });
+
+    function stopTyping() {
+      if (isTyping) {
+        isTyping = false;
+        socket.emit("typing", { room: window._room, typing: false });
+      }
+      clearTimeout(typingTimeout);
+    }
+
+    socket.on("typing", (data) => {
+      if (data.name === myName) return;
+      typingEl.textContent = data.typing ? `${data.name} กำลังพิมพ์...` : "";
     });
   </script>
 </body>

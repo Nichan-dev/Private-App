@@ -91,6 +91,15 @@ def on_message(data):
     )
 
 
+@socketio.on("typing")
+def on_typing(data):
+    room = data.get("room")
+    if not room or room not in rooms or request.sid not in rooms[room]["members"]:
+        return
+    name = rooms[room]["members"][request.sid]
+    emit("typing", {"name": name, "typing": bool(data.get("typing"))}, room=room, include_self=False)
+
+
 @socketio.on("seen")
 def on_seen(data):
     room = data.get("room")
