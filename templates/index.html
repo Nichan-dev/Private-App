@@ -56,6 +56,7 @@
 
   /* ---------- Header ---------- */
   .top-bar {
+    position: relative;
     flex-shrink: 0;
     padding: 18px 20px;
     background: linear-gradient(135deg, var(--primary), var(--primary-dark));
@@ -73,6 +74,26 @@
     font-size: 0.78rem;
     opacity: 0.85;
   }
+  #my-code-badge {
+    position: absolute;
+    top: 12px;
+    right: 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(255, 255, 255, 0.18);
+    color: white;
+    border: none;
+    padding: 4px 9px;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  #my-code-badge:active { transform: scale(0.95); }
+  #my-code-badge .hint { font-weight: 400; opacity: 0.8; }
 
   /* ---------- Setup screen ---------- */
   #setup {
@@ -318,6 +339,9 @@
   <div class="top-bar">
     <h1>💬 แชทง่ายๆ</h1>
     <div class="sub" id="top-sub">คุยกันแบบส่วนตัว ไม่มีประวัติค้าง</div>
+    <button id="my-code-badge" type="button" title="แตะเพื่อคัดลอกรหัสของฉัน">
+      <span class="hint">รหัสฉัน</span> <span id="my-code">...</span> 📋
+    </button>
   </div>
 
   <div id="setup">
@@ -327,10 +351,16 @@
     </div>
 
     <div class="section-card">
+      <div class="section-title">🤝 แอดเพื่อนด้วยรหัส</div>
+      <input type="text" id="friend-code-input" placeholder="ใส่รหัสของเพื่อน (6 ตัว)" maxlength="6" style="text-transform: uppercase;">
+      <button id="add-friend-btn" type="button" class="btn btn-primary">เพิ่มเพื่อน</button>
+    </div>
+
+    <div class="section-card">
       <div class="section-title">🆕 สร้างห้องใหม่</div>
       <input type="text" id="room-label-input" placeholder="ชื่อห้อง (ไม่บังคับ) เช่น คุยกับเก่ง" maxlength="40">
       <input type="text" id="custom-code-input" placeholder="ตั้งรหัสห้องเอง (ไม่บังคับ)" maxlength="20" style="margin-top: 8px;">
-      <button id="create-btn" type="button" class="btn btn-primary">สร้างห้อง</button>
+      <button id="create-btn" type="button" class="btn btn-outline">สร้างห้อง</button>
     </div>
 
     <div class="section-card">
@@ -396,6 +426,39 @@
 
     document.getElementById("room-input").addEventListener("keydown", (e) => {
       if (e.key === "Enter") { e.preventDefault(); document.getElementById("join-btn").click(); }
+    });
+
+    // --- รหัสส่วนตัว + แอดเพื่อน ---
+    let myCode = "";
+    const myCodeEl = document.getElementById("my-code");
+
+    socket.on("your_code", (data) => {
+      myCode = data.code;
+      myCodeEl.textContent = myCode;
+    });
+
+    document.getElementById("my-code-badge").addEventListener("click", () => {
+      if (myCode && navigator.clipboard) navigator.clipboard.writeText(myCode).catch(() => {});
+    });
+
+    document.getElementById("add-friend-btn").onclick = () => {
+      errorEl.textContent = "";
+      const friendCode = document.getElementById("friend-code-input").value.trim().toUpperCase();
+      if (!friendCode) { errorEl.textContent = "กรอกรหัสเพื่อนก่อนครับ"; return; }
+      socket.emit("add_friend", { code: friendCode });
+    };
+
+    document.getElementById("friend-code-input").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); document.getElementById("add-friend-btn").click(); }
+    });
+
+    socket.on("friend_error", (data) => {
+      errorEl.textContent = data.message;
+    });
+
+    socket.on("auto_join", (data) => {
+      errorEl.textContent = "";
+      doJoin(data.room);
     });
 
     function doJoin(room) {
