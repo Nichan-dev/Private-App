@@ -22,6 +22,10 @@ ONLINE_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"  # ตัดตัว�
 online_codes = {}   # code -> sid
 sid_to_code = {}    # sid -> code
 
+# ข้อความที่ส่งหาเพื่อนตอนเพื่อนออฟไลน์ -> ค้างไว้ตรงนี้ รอเพื่อนออนไลน์แล้วค่อยส่งให้
+# (เก็บแค่ในหน่วยความจำ ถ้าเซิร์ฟเวอร์รีสตาร์ท/พักตัว ข้อความที่ค้างจะหายไป)
+friend_messages_pending = {}  # code -> [{"from": code, "text": str, "time": str}, ...]
+
 CODE_PATTERN = re.compile(r"^[A-Za-z0-9_-]{3,20}$")
 
 
@@ -84,27 +88,58 @@ def on_register_code(data):
     sid_to_code[request.sid] = code
     emit("your_code", {"code": code})
 
+    # มีข้อความที่เพื่อนส่งมาตอนที่เรายังไม่ออนไลน์ค้างอยู่ไหม -> ส่งให้ตอนนี้เลย
+    pending = friend_messages_pending.pop(code, [])
+    for msg in pending:
+        emit("friend_message", msg)
 
-@socketio.on("add_friend")
-def on_add_friend(data):
+
+@socketio.on("friend_request")
+def on_friend_request(data):
     friend_code = (data.get("code") or "").strip().upper()
-    if not friend_code:
+    my_code = sid_to_code.get(request.sid)
+    if not friend_code or not my_code:
         return
 
-    if friend_code == sid_to_code.get(request.sid):
+    if friend_code == my_code:
         emit("friend_error", {"message": "นี่รหัสของตัวเองนะ ใส่รหัสของเพื่อนสิ"})
         return
 
     target_sid = online_codes.get(friend_code)
     if not target_sid:
-        emit("friend_error", {"message": "ไม่พบเพื่อนคนนี้ หรือเขาไม่ได้ออนไลน์ตอนนี้"})
+        emit("friend_error", {"message": "ไม่พบเพื่อนคนนี้ หรือเขาไม่ได้ออนไลน์ตอนนี้ (ต้องออนไลน์พร้อมกันตอนขอเพิ่มเพื่อน)"})
         return
 
-    room = gen_room_code()
-    rooms[room] = {"members": {}, "label": ""}
+    emit("friend_request_received", {"code": my_code}, room=target_sid)
 
-    emit("auto_join", {"room": room})
-    emit("auto_join", {"room": room}, room=target_sid)
+
+@socketio.on("friend_response")
+def on_friend_response(data):
+    friend_code = (data.get("code") or "").strip().upper()
+    accepted = bool(data.get("accepted"))
+    my_code = sid_to_code.get(request.sid)
+    if not friend_code or not my_code:
+        return
+
+    target_sid = online_codes.get(friend_code)
+    if target_sid:
+        emit("friend_response_received", {"code": my_code, "accepted": accepted}, room=target_sid)
+
+
+@socketio.on("friend_message")
+def on_friend_message(data):
+    friend_code = (data.get("code") or "").strip().upper()
+    text = (data.get("text") or "").strip()
+    my_code = sid_to_code.get(request.sid)
+    if not friend_code or not my_code or not text:
+        return
+
+    msg = {"from": my_code, "text": text, "time": now_str()}
+    target_sid = online_codes.get(friend_code)
+    if target_sid:
+        emit("friend_message", msg, room=target_sid)
+    else:
+        friend_messages_pending.setdefault(friend_code, []).append(msg)
 
 
 @socketio.on("join")

@@ -38,6 +38,7 @@
   }
 
   #app {
+    position: relative;
     width: 100%;
     max-width: 460px;
     height: 100vh;
@@ -332,6 +333,117 @@
     box-shadow: 0 6px 16px -6px rgba(109, 94, 247, 0.8);
   }
   #send-form button:active { transform: scale(0.94); }
+
+  /* ---------- Friends list ---------- */
+  #friend-request-status { min-height: 1.1em; font-size: 0.8rem; color: var(--muted); margin-top: 6px; }
+  .friend-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: var(--field-bg);
+    margin-bottom: 8px;
+  }
+  .friend-row:last-child { margin-bottom: 0; }
+  .friend-row .friend-code { font-weight: 700; letter-spacing: 0.5px; }
+  .friend-row button {
+    border: none;
+    background: var(--primary);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  #friends-empty { color: var(--muted); font-size: 0.85rem; }
+
+  /* ---------- Friend chat ---------- */
+  #friend-chat { display: none; flex-direction: column; flex: 1; min-height: 0; }
+  #friend-chat-info {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    background: #1c1726;
+    border-bottom: 1px solid var(--border);
+  }
+  #friend-chat-back {
+    border: none;
+    background: transparent;
+    color: var(--text);
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0 4px 0 0;
+  }
+  #friend-messages {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px;
+  }
+  #friend-send-form {
+    flex-shrink: 0;
+    display: flex;
+    gap: 8px;
+    padding: 12px 14px;
+    border-top: 1px solid var(--border);
+    background: #1c1726;
+  }
+  #friend-send-form input {
+    flex: 1;
+    padding: 12px 16px;
+    border-radius: 999px;
+    border: 1.5px solid var(--border);
+    background: var(--field-bg);
+    color: var(--text);
+    font-size: 0.95rem;
+    outline: none;
+    font-family: inherit;
+  }
+  #friend-send-form button {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    border: none;
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: white;
+    font-size: 1.1rem;
+    cursor: pointer;
+  }
+
+  /* ---------- Friend request overlay ---------- */
+  #friend-request-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(10, 8, 15, 0.7);
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+    padding: 24px;
+  }
+  .overlay-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 22px;
+    width: 100%;
+    max-width: 320px;
+    text-align: center;
+  }
+  .overlay-title { font-weight: 700; font-size: 1.05rem; margin-bottom: 10px; }
+  .overlay-text { font-size: 0.9rem; margin-bottom: 18px; }
+  .overlay-actions { display: flex; gap: 10px; }
+  .overlay-actions .btn { margin-top: 0; }
 </style>
 </head>
 <body>
@@ -353,7 +465,13 @@
     <div class="section-card">
       <div class="section-title">🤝 แอดเพื่อนด้วยรหัส</div>
       <input type="text" id="friend-code-input" placeholder="ใส่รหัสของเพื่อน (6 ตัว)" maxlength="6" style="text-transform: uppercase;">
-      <button id="add-friend-btn" type="button" class="btn btn-primary">เพิ่มเพื่อน</button>
+      <button id="send-friend-request-btn" type="button" class="btn btn-primary">ส่งคำขอเพื่อน</button>
+      <div id="friend-request-status"></div>
+    </div>
+
+    <div class="section-card" id="friends-section" style="display: none;">
+      <div class="section-title">👥 เพื่อนของฉัน</div>
+      <div id="friends-list"></div>
     </div>
 
     <div class="section-card">
@@ -385,6 +503,29 @@
       <input type="text" id="text-input" placeholder="พิมพ์ข้อความ..." autocomplete="off">
       <button type="submit" aria-label="ส่ง">➤</button>
     </form>
+  </div>
+
+  <div id="friend-chat">
+    <div id="friend-chat-info">
+      <button id="friend-chat-back" type="button" title="กลับ">←</button>
+      <span id="friend-chat-name"></span>
+    </div>
+    <div id="friend-messages"></div>
+    <form id="friend-send-form">
+      <input type="text" id="friend-text-input" placeholder="พิมพ์ข้อความ..." autocomplete="off">
+      <button type="submit" aria-label="ส่ง">➤</button>
+    </form>
+  </div>
+
+  <div id="friend-request-overlay">
+    <div class="overlay-card">
+      <div class="overlay-title">🤝 คำขอเพิ่มเพื่อน</div>
+      <div class="overlay-text">รหัส <b id="fr-code"></b> ขอเพิ่มคุณเป็นเพื่อน</div>
+      <div class="overlay-actions">
+        <button id="fr-reject" type="button" class="btn btn-outline">ปฏิเสธ</button>
+        <button id="fr-accept" type="button" class="btn btn-primary">ยอมรับ</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -446,24 +587,153 @@
       if (myCode && navigator.clipboard) navigator.clipboard.writeText(myCode).catch(() => {});
     });
 
-    document.getElementById("add-friend-btn").onclick = () => {
+    // --- ส่งคำขอเพื่อน ---
+    const friendReqStatusEl = document.getElementById("friend-request-status");
+
+    document.getElementById("send-friend-request-btn").onclick = () => {
+      friendReqStatusEl.textContent = "";
       errorEl.textContent = "";
       const friendCode = document.getElementById("friend-code-input").value.trim().toUpperCase();
       if (!friendCode) { errorEl.textContent = "กรอกรหัสเพื่อนก่อนครับ"; return; }
-      socket.emit("add_friend", { code: friendCode });
+      if (getFriends().some((f) => f.code === friendCode)) {
+        friendReqStatusEl.textContent = "เป็นเพื่อนกันอยู่แล้ว";
+        return;
+      }
+      socket.emit("friend_request", { code: friendCode });
+      friendReqStatusEl.textContent = "ส่งคำขอแล้ว รอเพื่อนกดยอมรับ...";
     };
 
     document.getElementById("friend-code-input").addEventListener("keydown", (e) => {
-      if (e.key === "Enter") { e.preventDefault(); document.getElementById("add-friend-btn").click(); }
+      if (e.key === "Enter") { e.preventDefault(); document.getElementById("send-friend-request-btn").click(); }
     });
 
     socket.on("friend_error", (data) => {
+      friendReqStatusEl.textContent = data.message;
       errorEl.textContent = data.message;
     });
 
-    socket.on("auto_join", (data) => {
-      errorEl.textContent = "";
-      doJoin(data.room);
+    // --- รับคำขอเพื่อนเข้ามา ---
+    const overlayEl = document.getElementById("friend-request-overlay");
+    let incomingRequestCode = null;
+
+    socket.on("friend_request_received", (data) => {
+      incomingRequestCode = data.code;
+      document.getElementById("fr-code").textContent = data.code;
+      overlayEl.style.display = "flex";
+    });
+
+    document.getElementById("fr-accept").onclick = () => {
+      socket.emit("friend_response", { code: incomingRequestCode, accepted: true });
+      addFriend(incomingRequestCode);
+      overlayEl.style.display = "none";
+    };
+
+    document.getElementById("fr-reject").onclick = () => {
+      socket.emit("friend_response", { code: incomingRequestCode, accepted: false });
+      overlayEl.style.display = "none";
+    };
+
+    socket.on("friend_response_received", (data) => {
+      if (data.accepted) {
+        addFriend(data.code);
+        friendReqStatusEl.textContent = `${data.code} ยอมรับคำขอแล้ว เป็นเพื่อนกันแล้ว!`;
+      } else {
+        friendReqStatusEl.textContent = `${data.code} ปฏิเสธคำขอเพื่อน`;
+      }
+    });
+
+    // --- รายชื่อเพื่อน (เก็บใน localStorage) ---
+    function getFriends() {
+      try { return JSON.parse(localStorage.getItem("myFriends") || "[]"); }
+      catch { return []; }
+    }
+
+    function addFriend(code) {
+      const friends = getFriends();
+      if (!friends.some((f) => f.code === code)) {
+        friends.push({ code });
+        localStorage.setItem("myFriends", JSON.stringify(friends));
+      }
+      renderFriends();
+    }
+
+    function renderFriends() {
+      const friends = getFriends();
+      const section = document.getElementById("friends-section");
+      const list = document.getElementById("friends-list");
+      list.innerHTML = "";
+
+      if (friends.length === 0) {
+        section.style.display = "none";
+        return;
+      }
+      section.style.display = "block";
+
+      for (const f of friends) {
+        const row = document.createElement("div");
+        row.className = "friend-row";
+        row.innerHTML = `<span class="friend-code">${f.code}</span>`;
+        const btn = document.createElement("button");
+        btn.textContent = "แชท";
+        btn.onclick = () => openFriendChat(f.code);
+        row.appendChild(btn);
+        list.appendChild(row);
+      }
+    }
+
+    renderFriends();
+
+    // --- แชทกับเพื่อน (แยกจากระบบห้อง) ---
+    const friendChatEl = document.getElementById("friend-chat");
+    const friendMessagesEl = document.getElementById("friend-messages");
+    const messagesByFriend = {}; // code -> [{mine, text, time}]
+    let activeFriendCode = null;
+
+    function openFriendChat(code) {
+      activeFriendCode = code;
+      document.getElementById("friend-chat-name").textContent = code;
+      setupEl.style.display = "none";
+      chatEl.style.display = "none";
+      friendChatEl.style.display = "flex";
+      renderFriendMessages();
+    }
+
+    document.getElementById("friend-chat-back").onclick = () => {
+      activeFriendCode = null;
+      friendChatEl.style.display = "none";
+      setupEl.style.display = "flex";
+    };
+
+    function renderFriendMessages() {
+      friendMessagesEl.innerHTML = "";
+      const list = messagesByFriend[activeFriendCode] || [];
+      for (const m of list) {
+        const div = document.createElement("div");
+        div.className = "msg " + (m.mine ? "me" : "them");
+        div.innerHTML = `<div class="meta">${m.mine ? "คุณ" : activeFriendCode} · ${m.time}</div>${escapeHtml(m.text)}`;
+        friendMessagesEl.appendChild(div);
+      }
+      friendMessagesEl.scrollTop = friendMessagesEl.scrollHeight;
+    }
+
+    socket.on("friend_message", (data) => {
+      const list = (messagesByFriend[data.from] = messagesByFriend[data.from] || []);
+      list.push({ mine: false, text: data.text, time: data.time });
+      if (activeFriendCode === data.from) renderFriendMessages();
+      // ถ้ายังไม่เคยเป็นเพื่อนในลิสต์ (เผื่อกรณีข้อความมาก่อนรีเฟรช) ก็เพิ่มให้อัตโนมัติ
+      if (!getFriends().some((f) => f.code === data.from)) addFriend(data.from);
+    });
+
+    document.getElementById("friend-send-form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const input = document.getElementById("friend-text-input");
+      const text = input.value.trim();
+      if (!text || !activeFriendCode) return;
+      socket.emit("friend_message", { code: activeFriendCode, text });
+      const list = (messagesByFriend[activeFriendCode] = messagesByFriend[activeFriendCode] || []);
+      list.push({ mine: true, text, time: new Date().toTimeString().slice(0, 5) });
+      renderFriendMessages();
+      input.value = "";
     });
 
     function doJoin(room) {
