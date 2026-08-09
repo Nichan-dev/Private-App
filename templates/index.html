@@ -273,7 +273,7 @@
     border-radius: 999px;
   }
 
-  #typing-indicator {
+  #typing-indicator, #friend-typing-indicator {
     flex-shrink: 0;
     font-size: 0.78rem;
     color: var(--muted);
@@ -513,6 +513,7 @@
       <span id="friend-chat-name"></span>
     </div>
     <div id="friend-messages"></div>
+    <div id="friend-typing-indicator"></div>
     <form id="friend-send-form">
       <input type="text" id="friend-text-input" placeholder="พิมพ์ข้อความ..." autocomplete="off">
       <button type="submit" aria-label="ส่ง">➤</button>
@@ -726,10 +727,12 @@
     function openFriendChat(code) {
       activeFriendCode = code;
       document.getElementById("friend-chat-name").textContent = getFriendLabel(code);
+      friendTypingEl.textContent = "";
       setupEl.style.display = "none";
       chatEl.style.display = "none";
       friendChatEl.style.display = "flex";
       renderFriendMessages();
+      socket.emit("friend_seen", { code });
     }
 
     document.getElementById("friend-chat-back").onclick = () => {
@@ -744,18 +747,44 @@
       for (const m of list) {
         const div = document.createElement("div");
         div.className = "msg " + (m.mine ? "me" : "them");
-        div.innerHTML = `<div class="meta">${m.mine ? "คุณ" : escapeHtml(getFriendLabel(activeFriendCode))} · ${m.time}</div>${escapeHtml(m.text)}`;
+        div.innerHTML = `<div class="meta">${m.mine ? "คุณ" : escapeHtml(getFriendLabel(activeFriendCode))} · ${m.time}</div>${escapeHtml(m.text)}` +
+          (m.mine ? `<div class="seen">${m.seen ? "อ่านแล้ว ✓✓" : ""}</div>` : "");
         friendMessagesEl.appendChild(div);
       }
       friendMessagesEl.scrollTop = friendMessagesEl.scrollHeight;
     }
 
+    let hasUnseenFriendIncoming = false;
+
     socket.on("friend_message", (data) => {
       const list = (messagesByFriend[data.from] = messagesByFriend[data.from] || []);
       list.push({ mine: false, text: data.text, time: data.time });
-      if (activeFriendCode === data.from) renderFriendMessages();
+      if (activeFriendCode === data.from) {
+        renderFriendMessages();
+        if (document.visibilityState === "visible") {
+          socket.emit("friend_seen", { code: data.from });
+        } else {
+          hasUnseenFriendIncoming = true;
+        }
+      }
       // ถ้ายังไม่เคยเป็นเพื่อนในลิสต์ (เผื่อกรณีข้อความมาก่อนรีเฟรช) ก็เพิ่มให้อัตโนมัติ
       if (!getFriends().some((f) => f.code === data.from)) addFriend(data.from);
+    });
+
+    socket.on("friend_seen", (data) => {
+      const list = messagesByFriend[data.code];
+      if (!list) return;
+      for (let i = list.length - 1; i >= 0; i--) {
+        if (list[i].mine) { list[i].seen = true; break; }
+      }
+      if (activeFriendCode === data.code) renderFriendMessages();
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible" && hasUnseenFriendIncoming && activeFriendCode) {
+        socket.emit("friend_seen", { code: activeFriendCode });
+        hasUnseenFriendIncoming = false;
+      }
     });
 
     document.getElementById("friend-send-form").addEventListener("submit", (e) => {
@@ -768,6 +797,37 @@
       list.push({ mine: true, text, time: new Date().toTimeString().slice(0, 5) });
       renderFriendMessages();
       input.value = "";
+      stopFriendTyping();
+    });
+
+    // --- กำลังพิมพ์ (friend chat) ---
+    const friendTypingEl = document.getElementById("friend-typing-indicator");
+    let isFriendTyping = false;
+    let friendTypingTimeout = null;
+
+    document.getElementById("friend-text-input").addEventListener("input", () => {
+      if (!activeFriendCode) return;
+      if (!isFriendTyping) {
+        isFriendTyping = true;
+        socket.emit("friend_typing", { code: activeFriendCode, typing: true });
+      }
+      clearTimeout(friendTypingTimeout);
+      friendTypingTimeout = setTimeout(stopFriendTyping, 1500);
+    });
+
+    function stopFriendTyping() {
+      if (isFriendTyping && activeFriendCode) {
+        isFriendTyping = false;
+        socket.emit("friend_typing", { code: activeFriendCode, typing: false });
+      }
+      clearTimeout(friendTypingTimeout);
+    }
+
+    socket.on("friend_typing", (data) => {
+      if (data.code !== activeFriendCode) return;
+      friendTypingEl.innerHTML = data.typing
+        ? `${escapeHtml(getFriendLabel(data.code))} กำลังพิมพ์ <span class="typing-dots"><span></span><span></span><span></span></span>`
+        : "";
     });
 
     function doJoin(room) {

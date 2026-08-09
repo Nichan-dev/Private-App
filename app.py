@@ -200,6 +200,28 @@ def on_seen(data):
     emit("seen", {"name": reader_name}, room=room, include_self=False)
 
 
+@socketio.on("friend_typing")
+def on_friend_typing(data):
+    friend_code = (data.get("code") or "").strip().upper()
+    my_code = sid_to_code.get(request.sid)
+    if not friend_code or not my_code:
+        return
+    target_sid = online_codes.get(friend_code)
+    if target_sid:
+        emit("friend_typing", {"code": my_code, "typing": bool(data.get("typing"))}, room=target_sid)
+
+
+@socketio.on("friend_seen")
+def on_friend_seen(data):
+    friend_code = (data.get("code") or "").strip().upper()
+    my_code = sid_to_code.get(request.sid)
+    if not friend_code or not my_code:
+        return
+    target_sid = online_codes.get(friend_code)
+    if target_sid:
+        emit("friend_seen", {"code": my_code}, room=target_sid)
+
+
 @socketio.on("disconnect")
 def on_disconnect():
     code = sid_to_code.pop(request.sid, None)
