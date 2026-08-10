@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>แชทง่ายๆ</title>
+<title>Private Chat</title>
 <style>
   * { box-sizing: border-box; }
 
@@ -449,7 +449,7 @@
 <body>
 <div id="app">
   <div class="top-bar">
-    <h1>💬 แชทง่ายๆ</h1>
+    <h1>💬 Private Chat</h1>
     <div class="sub" id="top-sub">คุยกันแบบส่วนตัว ไม่มีประวัติค้าง</div>
     <button id="my-code-badge" type="button" title="แตะเพื่อคัดลอกรหัสของฉัน">
       <span class="hint">รหัสฉัน</span> <span id="my-code">...</span> 📋
@@ -534,6 +534,19 @@
   <script>
     const socket = io();
     let myName = "";
+
+    // --- แจ้งเตือนข้อความใหม่ผ่าน Browser Notification (สำหรับคนที่เปิดเว็บทิ้งไว้) ---
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission().catch(() => {});
+    }
+
+    function notifyNewMessage(title, body) {
+      if (!("Notification" in window) || Notification.permission !== "granted") return;
+      try {
+        const n = new Notification(title, { body });
+        n.onclick = () => { window.focus(); n.close(); };
+      } catch {}
+    }
 
     const setupEl = document.getElementById("setup");
     const chatEl = document.getElementById("chat");
@@ -724,25 +737,74 @@
     let msgIdCounter = 0;
 
     // ข้อความที่ถูกอ่านแล้ว (ทั้งที่เราส่งและที่เพื่อนส่ง) จะถูกลบทิ้งหลังอ่านผ่านไป 30 นาที
+    // ส่วนข้อความที่ยังไม่ถูกอ่าน จะไม่ถูกลบจนกว่าจะครบ 24 ชั่วโมง
+    // ข้อความจะถูกเก็บลง localStorage ด้วย เพื่อให้รอดจากการรีเฟรชหน้าเว็บ และยังลบตามกำหนดเวลาเดิมต่อได้
     const READ_DELETE_MS = 30 * 60 * 1000;
+    const UNREAD_DELETE_MS = 24 * 60 * 60 * 1000;
+    const FRIEND_MESSAGES_KEY = "friendMessages";
 
-    function scheduleDeletion(code, msgId) {
-      setTimeout(() => {
-        const list = messagesByFriend[code];
-        if (!list) return;
-        const idx = list.findIndex((m) => m.id === msgId);
-        if (idx === -1) return;
-        list.splice(idx, 1);
-        if (activeFriendCode === code) renderFriendMessages();
-      }, READ_DELETE_MS);
+    function saveFriendMessages() {
+      const serializable = {};
+      for (const code in messagesByFriend) {
+        serializable[code] = messagesByFriend[code].map(({ deleteTimer, ...rest }) => rest);
+      }
+      try { localStorage.setItem(FRIEND_MESSAGES_KEY, JSON.stringify(serializable)); } catch {}
+    }
+
+    function removeFriendMessage(code, msgId) {
+      const list = messagesByFriend[code];
+      if (!list) return;
+      const idx = list.findIndex((m) => m.id === msgId);
+      if (idx === -1) return;
+      list.splice(idx, 1);
+      saveFriendMessages();
+      if (activeFriendCode === code) renderFriendMessages();
+    }
+
+    function scheduleUnreadDeletion(code, msg, delay = UNREAD_DELETE_MS) {
+      msg.deleteTimer = setTimeout(() => {
+        if (!msg.readAt) removeFriendMessage(code, msg.id);
+      }, delay);
+    }
+
+    function scheduleReadDeletion(code, msg, delay = READ_DELETE_MS) {
+      clearTimeout(msg.deleteTimer);
+      msg.deleteTimer = setTimeout(() => removeFriendMessage(code, msg.id), delay);
     }
 
     function markRead(code, msg) {
       if (msg.readAt) return;
       msg.readAt = Date.now();
       msg.seen = true;
-      scheduleDeletion(code, msg.id);
+      scheduleReadDeletion(code, msg);
+      saveFriendMessages();
     }
+
+    function loadFriendMessages() {
+      let parsed;
+      try { parsed = JSON.parse(localStorage.getItem(FRIEND_MESSAGES_KEY) || "{}"); }
+      catch { parsed = {}; }
+      const now = Date.now();
+      for (const code in parsed) {
+        const kept = [];
+        for (const msg of parsed[code]) {
+          if (msg.readAt) {
+            const remaining = READ_DELETE_MS - (now - msg.readAt);
+            if (remaining <= 0) continue;
+            scheduleReadDeletion(code, msg, remaining);
+          } else {
+            const remaining = UNREAD_DELETE_MS - (now - (msg.createdAt || now));
+            if (remaining <= 0) continue;
+            scheduleUnreadDeletion(code, msg, remaining);
+          }
+          kept.push(msg);
+          msgIdCounter = Math.max(msgIdCounter, msg.id);
+        }
+        if (kept.length) messagesByFriend[code] = kept;
+      }
+    }
+
+    loadFriendMessages();
 
     function markAllTheirsRead(code) {
       const list = messagesByFriend[code] || [];
@@ -788,8 +850,12 @@
 
     socket.on("friend_message", (data) => {
       const list = (messagesByFriend[data.from] = messagesByFriend[data.from] || []);
-      const msg = { id: ++msgIdCounter, mine: false, text: data.text, time: data.time, seen: false, readAt: null };
+      const msg = { id: ++msgIdCounter, mine: false, text: data.text, time: data.time, seen: false, readAt: null, createdAt: Date.now() };
       list.push(msg);
+      scheduleUnreadDeletion(data.from, msg);
+      saveFriendMessages();
+      // ถ้ายังไม่เคยเป็นเพื่อนในลิสต์ (เผื่อกรณีข้อความมาก่อนรีเฟรช) ก็เพิ่มให้อัตโนมัติ
+      if (!getFriends().some((f) => f.code === data.from)) addFriend(data.from);
       if (activeFriendCode === data.from) {
         renderFriendMessages();
         if (document.visibilityState === "visible") {
@@ -799,8 +865,9 @@
           hasUnseenFriendIncoming = true;
         }
       }
-      // ถ้ายังไม่เคยเป็นเพื่อนในลิสต์ (เผื่อกรณีข้อความมาก่อนรีเฟรช) ก็เพิ่มให้อัตโนมัติ
-      if (!getFriends().some((f) => f.code === data.from)) addFriend(data.from);
+      if (!document.hasFocus() || activeFriendCode !== data.from) {
+        notifyNewMessage(getFriendLabel(data.from), data.text);
+      }
     });
 
     socket.on("friend_seen", (data) => {
@@ -828,7 +895,10 @@
       if (!text || !activeFriendCode) return;
       socket.emit("friend_message", { code: activeFriendCode, text });
       const list = (messagesByFriend[activeFriendCode] = messagesByFriend[activeFriendCode] || []);
-      list.push({ id: ++msgIdCounter, mine: true, text, time: new Date().toTimeString().slice(0, 5), seen: false, readAt: null });
+      const msg = { id: ++msgIdCounter, mine: true, text, time: new Date().toTimeString().slice(0, 5), seen: false, readAt: null, createdAt: Date.now() };
+      list.push(msg);
+      scheduleUnreadDeletion(activeFriendCode, msg);
+      saveFriendMessages();
       renderFriendMessages();
       input.value = "";
       stopFriendTyping();
@@ -902,6 +972,9 @@
         socket.emit("seen", { room: window._room });
       } else {
         hasUnseenIncoming = true;
+      }
+      if (!mine && !document.hasFocus()) {
+        notifyNewMessage(data.name || "ข้อความใหม่", data.text);
       }
     });
 
