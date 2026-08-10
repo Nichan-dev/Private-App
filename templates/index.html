@@ -96,6 +96,21 @@
   #my-code-badge:active { transform: scale(0.95); }
   #my-code-badge .hint { font-weight: 400; opacity: 0.8; }
 
+  #theme-toggle-btn {
+    position: absolute;
+    top: 14px;
+    left: 16px;
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 4px 9px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  #theme-toggle-btn:active { transform: scale(0.95); }
+
   /* ---------- Setup screen ---------- */
   #setup {
     flex: 1;
@@ -444,11 +459,20 @@
   .overlay-text { font-size: 0.9rem; margin-bottom: 18px; }
   .overlay-actions { display: flex; gap: 10px; }
   .overlay-actions .btn { margin-top: 0; }
+
+  /* ---------- ธีมส่วนตัว (ผู้ใช้ปรับเอง เก็บเฉพาะเบราว์เซอร์นี้) ---------- */
+  #theme-overlay { display: none; position: absolute; inset: 0; background: rgba(10, 8, 15, 0.7); align-items: center; justify-content: center; z-index: 21; padding: 24px; }
+  .theme-card { text-align: left; max-height: 85vh; overflow-y: auto; }
+  .theme-field { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+  .theme-field label { font-size: 0.85rem; color: var(--muted); }
+  .theme-field input[type="color"] { width: 40px; height: 32px; border: 1px solid var(--border); border-radius: 8px; background: var(--field-bg); padding: 2px; cursor: pointer; }
+  .theme-field input[type="text"] { flex: 1; margin-left: 10px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--field-bg); color: var(--text); font-size: 0.85rem; font-family: inherit; }
 </style>
 </head>
 <body>
 <div id="app">
   <div class="top-bar">
+    <button id="theme-toggle-btn" type="button" title="ปรับแต่งธีมของฉัน">🎨</button>
     <h1>💬 Private Chat</h1>
     <div class="sub" id="top-sub">คุยกันแบบส่วนตัว ไม่มีประวัติค้าง</div>
     <button id="my-code-badge" type="button" title="แตะเพื่อคัดลอกรหัสของฉัน">
@@ -528,6 +552,40 @@
       </div>
     </div>
   </div>
+
+  <div id="theme-overlay">
+    <div class="overlay-card theme-card">
+      <div class="overlay-title">🎨 ธีมของฉัน</div>
+      <div class="overlay-text">ปรับสี/ฟอนต์เฉพาะเบราว์เซอร์นี้ ไม่กระทบคนอื่น</div>
+
+      <div class="theme-field">
+        <label for="my-theme-primary">สีหลัก</label>
+        <input type="color" id="my-theme-primary">
+      </div>
+      <div class="theme-field">
+        <label for="my-theme-bg">สีพื้นหลัง</label>
+        <input type="color" id="my-theme-bg">
+      </div>
+      <div class="theme-field">
+        <label for="my-theme-card">สีการ์ด/กล่อง</label>
+        <input type="color" id="my-theme-card">
+      </div>
+      <div class="theme-field">
+        <label for="my-theme-text">สีตัวอักษร</label>
+        <input type="color" id="my-theme-text">
+      </div>
+      <div class="theme-field">
+        <label for="my-theme-font">ฟอนต์</label>
+        <input type="text" id="my-theme-font" maxlength="120" placeholder="เช่น Georgia, serif">
+      </div>
+
+      <div class="overlay-actions">
+        <button id="my-theme-reset" type="button" class="btn btn-outline">ใช้ธีมเว็บ</button>
+        <button id="my-theme-save" type="button" class="btn btn-primary">บันทึก</button>
+      </div>
+      <button id="my-theme-close" type="button" class="btn btn-outline" style="margin-top: 8px;">ปิด</button>
+    </div>
+  </div>
 </div>
 
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
@@ -547,6 +605,47 @@
         n.onclick = () => { window.focus(); n.close(); };
       } catch {}
     }
+
+    // --- ธีมส่วนตัวของผู้ใช้ (เก็บใน localStorage เฉพาะเบราว์เซอร์นี้ ไม่กระทบธีมกลางที่แอดมินตั้งให้คนอื่น) ---
+    const MY_THEME_KEY = "myTheme";
+    const MY_THEME_VARS = { primary: "--primary", bgTop: "--bg-top", card: "--card", text: "--text" };
+
+    function getMyTheme() {
+      try { return JSON.parse(localStorage.getItem(MY_THEME_KEY) || "null"); }
+      catch { return null; }
+    }
+
+    function darkenHex(hex, factor = 0.15) {
+      const n = hex.replace("#", "");
+      const r = parseInt(n.slice(0, 2), 16);
+      const g = parseInt(n.slice(2, 4), 16);
+      const b = parseInt(n.slice(4, 6), 16);
+      const clamp = (v) => Math.max(0, Math.round(v * (1 - factor))).toString(16).padStart(2, "0");
+      return `#${clamp(r)}${clamp(g)}${clamp(b)}`;
+    }
+
+    function applyMyTheme() {
+      const t = getMyTheme();
+      if (!t) return;
+      const root = document.documentElement.style;
+      for (const key in MY_THEME_VARS) {
+        if (t[key]) root.setProperty(MY_THEME_VARS[key], t[key]);
+      }
+      if (t.primary) root.setProperty("--primary-dark", darkenHex(t.primary));
+      if (t.font) {
+        document.body.style.fontFamily = `${t.font}, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+      }
+    }
+
+    function clearMyTheme() {
+      localStorage.removeItem(MY_THEME_KEY);
+      const root = document.documentElement.style;
+      Object.values(MY_THEME_VARS).forEach((v) => root.removeProperty(v));
+      root.removeProperty("--primary-dark");
+      document.body.style.fontFamily = "";
+    }
+
+    applyMyTheme();
 
     const setupEl = document.getElementById("setup");
     const chatEl = document.getElementById("chat");
@@ -599,6 +698,52 @@
 
     document.getElementById("my-code-badge").addEventListener("click", () => {
       if (myCode && navigator.clipboard) navigator.clipboard.writeText(myCode).catch(() => {});
+    });
+
+    // --- แผงปรับแต่งธีมของฉัน ---
+    const themeOverlayEl = document.getElementById("theme-overlay");
+    const myThemePrimaryInput = document.getElementById("my-theme-primary");
+    const myThemeBgInput = document.getElementById("my-theme-bg");
+    const myThemeCardInput = document.getElementById("my-theme-card");
+    const myThemeTextInput = document.getElementById("my-theme-text");
+    const myThemeFontInput = document.getElementById("my-theme-font");
+
+    function fillMyThemeForm() {
+      const t = getMyTheme() || {};
+      const style = getComputedStyle(document.documentElement);
+      myThemePrimaryInput.value = t.primary || style.getPropertyValue("--primary").trim() || "#8b7cf9";
+      myThemeBgInput.value = t.bgTop || style.getPropertyValue("--bg-top").trim() || "#1a1625";
+      myThemeCardInput.value = t.card || style.getPropertyValue("--card").trim() || "#201a2c";
+      myThemeTextInput.value = t.text || style.getPropertyValue("--text").trim() || "#f1eef8";
+      myThemeFontInput.value = t.font || "";
+    }
+
+    document.getElementById("theme-toggle-btn").addEventListener("click", () => {
+      fillMyThemeForm();
+      themeOverlayEl.style.display = "flex";
+    });
+
+    document.getElementById("my-theme-close").addEventListener("click", () => {
+      themeOverlayEl.style.display = "none";
+    });
+
+    document.getElementById("my-theme-save").addEventListener("click", () => {
+      const t = {
+        primary: myThemePrimaryInput.value,
+        bgTop: myThemeBgInput.value,
+        card: myThemeCardInput.value,
+        text: myThemeTextInput.value,
+        font: myThemeFontInput.value.trim().slice(0, 120),
+      };
+      localStorage.setItem(MY_THEME_KEY, JSON.stringify(t));
+      applyMyTheme();
+      themeOverlayEl.style.display = "none";
+    });
+
+    document.getElementById("my-theme-reset").addEventListener("click", () => {
+      clearMyTheme();
+      fillMyThemeForm();
+      themeOverlayEl.style.display = "none";
     });
 
     // --- ส่งคำขอเพื่อน ---
