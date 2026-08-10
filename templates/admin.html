@@ -14,6 +14,7 @@
     --muted: #948fac;
     --border: #362f47;
     --field-bg: #271f36;
+    --danger: #ff6b81;
   }
   * { box-sizing: border-box; }
   body {
@@ -52,6 +53,23 @@
   th { color: var(--muted); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; }
   tr:last-child td { border-bottom: none; }
   .empty { color: var(--muted); font-size: 0.9rem; padding: 14px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; }
+  .report-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+  .report-row:last-child { border-bottom: none; }
+  .report-body { flex: 1; }
+  .report-meta { font-size: 0.75rem; color: var(--muted); margin-bottom: 4px; }
+  .report-text { font-size: 0.9rem; white-space: pre-wrap; word-break: break-word; }
+  .report-row form { flex-shrink: 0; }
+  .report-row button {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 0.78rem;
+    cursor: pointer;
+  }
+  .report-row button:hover { color: var(--danger); border-color: var(--danger); }
+  .reports-list { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
 </style>
 </head>
 <body>
@@ -77,7 +95,33 @@
         <div class="num">{{ pending_list|sum(attribute='count') }}</div>
         <div class="label">ข้อความค้างส่ง (เพื่อนออฟไลน์)</div>
       </div>
+      <div class="stat-card">
+        <div class="num">{{ reports|length }}</div>
+        <div class="label">รายงานปัญหา</div>
+      </div>
     </div>
+
+    <section>
+      <h2>รายงานปัญหาจากผู้ใช้</h2>
+      {% if reports %}
+      <div class="reports-list">
+        {% for r in reports %}
+        <div class="report-row">
+          <div class="report-body">
+            <div class="report-meta">{{ r.time }} · รหัส {{ r.code }}</div>
+            <div class="report-text">{{ r.message }}</div>
+          </div>
+          <form method="post" action="{{ url_for('admin_delete_report') }}">
+            <input type="hidden" name="id" value="{{ r.id }}">
+            <button type="submit">ลบ</button>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty">ยังไม่มีรายงานปัญหา</div>
+      {% endif %}
+    </section>
 
     <section>
       <h2>ห้องแชทที่เปิดอยู่</h2>

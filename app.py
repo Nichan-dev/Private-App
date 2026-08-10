@@ -6,6 +6,7 @@ import os
 import random
 import re
 import string
+import uuid
 from datetime import datetime
 
 from functools import wraps
@@ -94,6 +95,38 @@ def theme_context():
     return ctx
 
 
+# รายงานปัญหาที่ผู้ใช้ส่งมา -> เก็บลงไฟล์ด้วยเหมือนธีม เพื่อไม่ให้หายตอนเซิร์ฟเวอร์รีสตาร์ท
+# (แต่จะหายถ้ามีการ deploy โค้ดใหม่ เพราะ Render สร้าง container ใหม่ทุกครั้งที่ deploy)
+REPORTS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reports.json")
+
+
+def load_reports():
+    try:
+        with open(REPORTS_FILE, "r", encoding="utf-8") as f:
+            saved = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return []
+
+    if not isinstance(saved, list):
+        return []
+    return [
+        r for r in saved
+        if isinstance(r, dict) and isinstance(r.get("id"), str)
+        and isinstance(r.get("message"), str) and isinstance(r.get("time"), str)
+    ]
+
+
+def save_reports():
+    try:
+        with open(REPORTS_FILE, "w", encoding="utf-8") as f:
+            json.dump(reports, f, ensure_ascii=False, indent=2)
+    except OSError:
+        pass
+
+
+reports = load_reports()
+
+
 def gen_room_code():
     while True:
         code = "".join(random.choices(string.digits, k=6))
@@ -160,8 +193,19 @@ def admin_dashboard():
         online_count=len(online_codes),
         room_list=room_list,
         pending_list=pending_list,
+        reports=list(reversed(reports)),
         theme=theme_context(),
     )
+
+
+@app.route("/admin/reports/delete", methods=["POST"])
+@admin_required
+def admin_delete_report():
+    report_id = request.form.get("id")
+    global reports
+    reports = [r for r in reports if r["id"] != report_id]
+    save_reports()
+    return redirect(url_for("admin_dashboard"))
 
 
 @app.route("/admin/theme", methods=["GET", "POST"])
@@ -210,6 +254,25 @@ def create_room():
 
     rooms[code] = {"members": {}, "label": label}
     return jsonify({"room": code, "label": label})
+
+
+@app.route("/api/report", methods=["POST"])
+def api_report():
+    data = request.get_json(silent=True) or {}
+    message = (data.get("message") or "").strip()[:500]
+    code = (data.get("code") or "").strip().upper()[:10]
+
+    if not message:
+        return jsonify({"error": "กรุณาใส่ข้อความ"}), 400
+
+    reports.append({
+        "id": uuid.uuid4().hex[:8],
+        "code": code or "ไม่ทราบ",
+        "message": message,
+        "time": datetime.now().strftime("%d/%m %H:%M"),
+    })
+    save_reports()
+    return jsonify({"ok": True})
 
 
 ONLINE_CODE_PATTERN = re.compile(r"^[A-Z2-9]{6}$")
