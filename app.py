@@ -1,6 +1,7 @@
 import eventlet
 eventlet.monkey_patch()
 
+import json
 import os
 import random
 import re
@@ -33,7 +34,8 @@ friend_messages_pending = {}  # code -> [{"from": code, "text": str, "time": str
 CODE_PATTERN = re.compile(r"^[A-Za-z0-9_-]{3,20}$")
 
 # ธีม UI (สี/ฟอนต์) ที่แอดมินปรับแต่งได้ ใช้ร่วมกันทั้งหน้าผู้ใช้และหน้าแอดมิน
-# (เก็บในหน่วยความจำเหมือน state อื่นๆ ของแอปนี้ รีสตาร์ทเซิร์ฟเวอร์แล้วจะกลับเป็นค่าเริ่มต้น)
+# เก็บลงไฟล์ theme_settings.json ด้วย เพื่อให้ค่าที่ตั้งไว้อยู่ถาวรข้ามการรีสตาร์ทเซิร์ฟเวอร์
+# (ต่างจาก state อื่นๆ ของแอปนี้ที่เก็บแค่ในหน่วยความจำ)
 DEFAULT_THEME = {
     "primary": "#8b7cf9",
     "bg_top": "#1a1625",
@@ -41,10 +43,39 @@ DEFAULT_THEME = {
     "text": "#f1eef8",
     "font": '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
 }
-theme_settings = dict(DEFAULT_THEME)
+THEME_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "theme_settings.json")
 
 COLOR_PATTERN = re.compile(r"^#[0-9a-fA-F]{6}$")
 FONT_PATTERN = re.compile(r"^[A-Za-z0-9 ,\-\"']{1,120}$")
+
+
+def load_theme():
+    try:
+        with open(THEME_FILE, "r", encoding="utf-8") as f:
+            saved = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return dict(DEFAULT_THEME)
+
+    theme = dict(DEFAULT_THEME)
+    for key in ("primary", "bg_top", "card", "text"):
+        value = saved.get(key)
+        if isinstance(value, str) and COLOR_PATTERN.match(value):
+            theme[key] = value
+    font = saved.get("font")
+    if isinstance(font, str) and FONT_PATTERN.match(font):
+        theme["font"] = font
+    return theme
+
+
+def save_theme():
+    try:
+        with open(THEME_FILE, "w", encoding="utf-8") as f:
+            json.dump(theme_settings, f, ensure_ascii=False, indent=2)
+    except OSError:
+        pass
+
+
+theme_settings = load_theme()
 
 
 def darken_hex(hex_color, factor=0.15):
@@ -140,6 +171,7 @@ def admin_theme():
     if request.method == "POST":
         if request.form.get("reset"):
             theme_settings.update(DEFAULT_THEME)
+            save_theme()
             return redirect(url_for("admin_theme"))
 
         new_theme = {
@@ -155,6 +187,7 @@ def admin_theme():
             error = "ชื่อฟอนต์มีอักขระที่ไม่อนุญาต (ใช้ได้แค่ตัวอักษร ตัวเลข เว้นวรรค , - \" ')"
         else:
             theme_settings.update(new_theme)
+            save_theme()
             return redirect(url_for("admin_theme"))
 
     return render_template("admin_theme.html", theme=theme_context(), error=error)
