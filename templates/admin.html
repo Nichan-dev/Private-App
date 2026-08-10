@@ -8,13 +8,15 @@
 <style>
   :root {
     --primary: {{ theme.primary }};
+    --primary-rgb: {{ theme.primary_rgb }};
     --bg-top: {{ theme.bg_top }};
     --card: {{ theme.card }};
     --text: {{ theme.text }};
-    --muted: #948fac;
-    --border: #362f47;
-    --field-bg: #271f36;
+    --muted: color-mix(in srgb, var(--text) 58%, var(--bg-top));
+    --border: color-mix(in srgb, var(--text) 11%, transparent);
+    --field-bg: color-mix(in srgb, var(--card) 88%, var(--text) 7%);
     --danger: #ff6b81;
+    --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.16);
   }
   * { box-sizing: border-box; }
   body {
@@ -22,42 +24,45 @@
     background: var(--bg-top);
     color: var(--text);
     margin: 0;
-    padding: 24px;
+    padding: 28px 24px;
+    -webkit-font-smoothing: antialiased;
   }
   .wrap { max-width: 720px; margin: 0 auto; }
   .top-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 20px;
+    margin-bottom: 24px;
   }
-  h1 { margin: 0; font-size: 1.3rem; }
-  .top-row-links { display: flex; gap: 16px; }
-  a.logout { color: var(--muted); font-size: 0.85rem; text-decoration: none; }
+  h1 { margin: 0; font-size: 1.2rem; font-weight: 600; letter-spacing: -0.1px; }
+  .top-row-links { display: flex; gap: 18px; }
+  a.logout { color: var(--muted); font-size: 0.82rem; text-decoration: none; transition: color 0.15s; }
   a.logout:hover { color: var(--text); }
-  .stats { display: flex; gap: 12px; margin-bottom: 24px; }
+  .stats { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
   .stat-card {
     flex: 1;
+    min-width: 120px;
     background: var(--card);
     border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 16px;
+    border-radius: 16px;
+    box-shadow: var(--shadow-sm);
+    padding: 18px 16px;
     text-align: center;
   }
-  .stat-card .num { font-size: 1.8rem; font-weight: 700; color: var(--primary); }
-  .stat-card .label { font-size: 0.8rem; color: var(--muted); margin-top: 4px; }
+  .stat-card .num { font-size: 1.7rem; font-weight: 700; color: var(--primary); letter-spacing: -0.3px; }
+  .stat-card .label { font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
   section { margin-bottom: 24px; }
-  section h2 { font-size: 1rem; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
-  table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
-  th, td { text-align: left; padding: 10px 14px; font-size: 0.9rem; border-bottom: 1px solid var(--border); }
-  th { color: var(--muted); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; }
+  section h2 { font-size: 0.92rem; color: var(--muted); margin: 0 0 10px; font-weight: 600; letter-spacing: 0.1px; }
+  table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-sm); overflow: hidden; }
+  th, td { text-align: left; padding: 11px 16px; font-size: 0.88rem; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.4px; }
   tr:last-child td { border-bottom: none; }
-  .empty { color: var(--muted); font-size: 0.9rem; padding: 14px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; }
-  .report-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+  .empty { color: var(--muted); font-size: 0.88rem; padding: 16px; background: var(--card); border: 1px solid var(--border); border-radius: 14px; }
+  .report-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 13px 16px; border-bottom: 1px solid var(--border); }
   .report-row:last-child { border-bottom: none; }
   .report-body { flex: 1; }
-  .report-meta { font-size: 0.75rem; color: var(--muted); margin-bottom: 4px; }
-  .report-text { font-size: 0.9rem; white-space: pre-wrap; word-break: break-word; }
+  .report-meta { font-size: 0.74rem; color: var(--muted); margin-bottom: 4px; }
+  .report-text { font-size: 0.88rem; white-space: pre-wrap; word-break: break-word; }
   .report-row form { flex-shrink: 0; }
   .report-row button {
     background: transparent;
@@ -65,19 +70,21 @@
     color: var(--muted);
     border-radius: 8px;
     padding: 6px 10px;
-    font-size: 0.78rem;
+    font-size: 0.76rem;
     cursor: pointer;
+    font-family: inherit;
+    transition: color 0.15s, border-color 0.15s;
   }
   .report-row button:hover { color: var(--danger); border-color: var(--danger); }
-  .reports-list { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .reports-list { background: var(--card); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-sm); overflow: hidden; }
 </style>
 </head>
 <body>
   <div class="wrap">
     <div class="top-row">
-      <h1>📊 Admin Dashboard</h1>
+      <h1>Admin Dashboard</h1>
       <div class="top-row-links">
-        <a class="logout" href="{{ url_for('admin_theme') }}">🎨 ปรับแต่งธีม</a>
+        <a class="logout" href="{{ url_for('admin_theme') }}">ปรับแต่งธีม</a>
         <a class="logout" href="{{ url_for('admin_logout') }}">ออกจากระบบ</a>
       </div>
     </div>

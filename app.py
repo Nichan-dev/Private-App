@@ -89,9 +89,17 @@ def darken_hex(hex_color, factor=0.15):
     return f"#{r:02x}{g:02x}{b:02x}"
 
 
+def hex_to_rgb_str(hex_color):
+    r = int(hex_color[1:3], 16)
+    g = int(hex_color[3:5], 16)
+    b = int(hex_color[5:7], 16)
+    return f"{r}, {g}, {b}"
+
+
 def theme_context():
     ctx = dict(theme_settings)
     ctx["primary_dark"] = darken_hex(theme_settings["primary"])
+    ctx["primary_rgb"] = hex_to_rgb_str(theme_settings["primary"])
     return ctx
 
 

@@ -9,17 +9,22 @@
 
   :root {
     --primary: {{ theme.primary }};
+    --primary-rgb: {{ theme.primary_rgb }};
     --primary-dark: {{ theme.primary_dark }};
     --bg-top: {{ theme.bg_top }};
-    --bg-bottom: #170f1a;
     --card: {{ theme.card }};
     --text: {{ theme.text }};
-    --muted: #948fac;
-    --border: #362f47;
-    --bubble-them: #2b2438;
+    --muted: color-mix(in srgb, var(--text) 58%, var(--bg-top));
+    --border: color-mix(in srgb, var(--text) 11%, transparent);
+    --bubble-them: color-mix(in srgb, var(--card) 90%, var(--text) 10%);
     --danger: #ff6b81;
-    --field-bg: #271f36;
-    --field-bg-focus: #322947;
+    --field-bg: color-mix(in srgb, var(--card) 88%, var(--text) 7%);
+    --field-bg-focus: color-mix(in srgb, var(--card) 80%, var(--text) 12%);
+    --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.16);
+    --shadow-md: 0 20px 48px rgba(0, 0, 0, 0.38);
+    --radius-lg: 20px;
+    --radius-md: 14px;
+    --radius-sm: 11px;
   }
 
   html, body {
@@ -30,11 +35,14 @@
     font-family: {{ theme.font | safe }}, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     margin: 0;
     color: var(--text);
-    background: var(--bg-top);
+    background:
+      radial-gradient(ellipse 900px 500px at 50% -10%, color-mix(in srgb, var(--bg-top) 88%, var(--primary) 12%), transparent),
+      var(--bg-top);
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 0;
+    -webkit-font-smoothing: antialiased;
   }
 
   #app {
@@ -47,33 +55,35 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    letter-spacing: 0.1px;
   }
 
   @media (min-width: 480px) {
     body { padding: 24px; }
-    #app { height: 92vh; border-radius: 16px; border: 1px solid var(--border); }
+    #app { height: 92vh; border-radius: var(--radius-lg); border: 1px solid var(--border); box-shadow: var(--shadow-md); }
   }
 
   /* ---------- Header ---------- */
   .top-bar {
     position: relative;
     flex-shrink: 0;
-    padding: 16px 20px;
+    padding: 18px 20px;
     background: var(--card);
-    border-bottom: 1px solid var(--border);
+    box-shadow: 0 1px 0 var(--border);
     color: var(--text);
     text-align: center;
   }
   .top-bar h1 {
     margin: 0;
-    font-size: 1.05rem;
+    font-size: 1rem;
     font-weight: 600;
-    letter-spacing: 0.2px;
+    letter-spacing: -0.1px;
   }
   .top-bar .sub {
-    margin-top: 2px;
-    font-size: 0.76rem;
+    margin-top: 3px;
+    font-size: 0.73rem;
     color: var(--muted);
+    letter-spacing: 0.1px;
   }
   #my-code-badge {
     position: absolute;
@@ -82,34 +92,42 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    background: transparent;
+    background: color-mix(in srgb, var(--card) 60%, transparent);
     color: var(--muted);
     border: 1px solid var(--border);
-    padding: 4px 9px;
-    border-radius: 8px;
-    font-size: 0.7rem;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 0.68rem;
     font-weight: 600;
-    letter-spacing: 0.3px;
+    letter-spacing: 0.2px;
     cursor: pointer;
     font-family: inherit;
+    transition: color 0.15s, border-color 0.15s;
   }
   #my-code-badge:active { transform: scale(0.95); }
-  #my-code-badge .hint { font-weight: 400; opacity: 0.8; }
+  #my-code-badge:hover { color: var(--text); border-color: color-mix(in srgb, var(--text) 22%, transparent); }
+  #my-code-badge .hint { font-weight: 400; opacity: 0.75; }
 
   #theme-toggle-btn {
     position: absolute;
     top: 14px;
     left: 16px;
-    background: transparent;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    background: color-mix(in srgb, var(--card) 60%, transparent);
     color: var(--muted);
     border: 1px solid var(--border);
-    padding: 4px 9px;
-    border-radius: 8px;
-    font-size: 0.85rem;
+    border-radius: 999px;
+    font-size: 0.82rem;
     cursor: pointer;
     font-family: inherit;
+    transition: border-color 0.15s;
   }
   #theme-toggle-btn:active { transform: scale(0.95); }
+  #theme-toggle-btn:hover { border-color: color-mix(in srgb, var(--text) 22%, transparent); }
 
   /* ---------- Setup screen ---------- */
   #setup {
@@ -132,61 +150,66 @@
     width: 100%;
     padding: 13px 14px;
     font-size: 0.95rem;
-    border-radius: 12px;
-    border: 1.5px solid var(--border);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
     background: var(--field-bg);
     color: var(--text);
     outline: none;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
     transition: border-color 0.15s, background 0.15s;
     font-family: inherit;
   }
   #setup input::placeholder { color: var(--muted); }
   #setup input:focus {
-    border-color: var(--primary);
+    border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
     background: var(--field-bg-focus);
   }
   .name-row { margin-bottom: 4px; }
 
   .section-card {
     margin-top: 14px;
-    padding: 14px;
-    border-radius: 10px;
-    background: transparent;
+    padding: 16px;
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--card) 97%, var(--text) 3%);
     border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
   }
   .section-title {
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     font-weight: 600;
     color: var(--muted);
     margin-bottom: 10px;
     display: flex;
     align-items: center;
     gap: 6px;
+    letter-spacing: 0.1px;
   }
 
   .btn {
     border: none;
-    border-radius: 10px;
+    border-radius: var(--radius-sm);
     padding: 12px;
-    font-size: 0.95rem;
+    font-size: 0.92rem;
     font-weight: 600;
     cursor: pointer;
     width: 100%;
     font-family: inherit;
-    transition: opacity 0.15s;
+    transition: opacity 0.15s, transform 0.15s;
   }
-  .btn:active { opacity: 0.75; }
+  .btn:active { opacity: 0.8; transform: scale(0.99); }
   .btn-primary {
     margin-top: 10px;
-    background: var(--primary-dark);
+    background: var(--primary);
     color: white;
+    box-shadow: 0 8px 20px -8px rgba(var(--primary-rgb), 0.7);
   }
   .btn-outline {
     margin-top: 10px;
     background: transparent;
-    color: var(--primary);
+    color: var(--text);
     border: 1px solid var(--border);
   }
+  .btn-outline:active { background: color-mix(in srgb, var(--card) 80%, var(--text) 6%); }
 
   #error {
     color: var(--danger);
@@ -210,14 +233,14 @@
     font-size: 0.78rem;
     color: var(--muted);
     background: var(--card);
-    border-bottom: 1px solid var(--border);
+    box-shadow: 0 1px 0 var(--border);
   }
   #room-label { font-weight: 700; color: var(--text); }
   #room-code-pill {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    background: rgba(139, 124, 249, 0.18);
+    background: rgba(var(--primary-rgb), 0.16);
     color: var(--primary);
     font-weight: 700;
     padding: 3px 10px;
@@ -226,6 +249,7 @@
     border: none;
     font-size: 0.78rem;
     font-family: inherit;
+    transition: transform 0.15s;
   }
   #room-code-pill:active { transform: scale(0.96); }
 
@@ -235,15 +259,15 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
-    padding: 16px;
+    padding: 18px 16px;
     background: var(--bg-top);
   }
   .msg {
     max-width: 78%;
-    padding: 9px 13px;
-    border-radius: 14px;
+    padding: 10px 14px;
+    border-radius: 16px;
     font-size: 0.93rem;
-    line-height: 1.35;
+    line-height: 1.4;
     animation: pop-in 0.15s ease-out;
   }
   @keyframes pop-in {
@@ -269,12 +293,14 @@
     background: var(--primary-dark);
     color: white;
     border-bottom-right-radius: 4px;
+    box-shadow: var(--shadow-sm);
   }
   .msg.me .meta { color: rgba(255,255,255,0.75); }
   .msg.them {
     align-self: flex-start;
     background: var(--bubble-them);
     color: var(--text);
+    border: 1px solid var(--border);
     border-bottom-left-radius: 4px;
   }
   .msg.system {
@@ -315,7 +341,7 @@
     display: flex;
     gap: 8px;
     padding: 12px 14px;
-    border-top: 1px solid var(--border);
+    box-shadow: 0 -1px 0 var(--border);
     background: var(--card);
   }
   #send-form input {
@@ -328,24 +354,27 @@
     font-size: 0.95rem;
     outline: none;
     font-family: inherit;
+    transition: border-color 0.15s, background 0.15s;
   }
   #send-form input::placeholder { color: var(--muted); }
-  #send-form input:focus { border-color: var(--primary); background: var(--field-bg-focus); }
+  #send-form input:focus { border-color: color-mix(in srgb, var(--primary) 55%, var(--border)); background: var(--field-bg-focus); }
   #send-form button {
     width: 42px;
     height: 42px;
     flex-shrink: 0;
     border-radius: 50%;
     border: none;
-    background: var(--primary-dark);
+    background: var(--primary);
     color: white;
     font-size: 1.05rem;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
+    box-shadow: 0 6px 16px -6px rgba(var(--primary-rgb), 0.7);
+    transition: opacity 0.15s, transform 0.15s;
   }
-  #send-form button:active { opacity: 0.75; }
+  #send-form button:active { opacity: 0.85; transform: scale(0.95); }
 
   /* ---------- Friends list ---------- */
   #friend-request-status { min-height: 1.1em; font-size: 0.8rem; color: var(--muted); margin-top: 6px; }
@@ -353,13 +382,14 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 12px;
-    border-radius: 12px;
+    padding: 11px 13px;
+    border-radius: var(--radius-md);
     background: var(--field-bg);
+    border: 1px solid var(--border);
     margin-bottom: 8px;
   }
   .friend-row:last-child { margin-bottom: 0; }
-  .friend-row .friend-code { font-weight: 700; letter-spacing: 0.5px; }
+  .friend-row .friend-code { font-weight: 700; letter-spacing: 0.3px; }
   .friend-row-actions { display: flex; align-items: center; gap: 6px; }
   .friend-edit-btn { background: transparent !important; padding: 4px !important; font-size: 0.9rem; }
   .friend-row button {
@@ -386,7 +416,7 @@
     font-size: 0.9rem;
     font-weight: 700;
     background: var(--card);
-    border-bottom: 1px solid var(--border);
+    box-shadow: 0 1px 0 var(--border);
   }
   #friend-chat-back {
     border: none;
@@ -395,21 +425,24 @@
     font-size: 1.2rem;
     cursor: pointer;
     padding: 0 4px 0 0;
+    transition: opacity 0.15s;
   }
+  #friend-chat-back:active { opacity: 0.6; }
   #friend-messages {
     flex: 1;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 10px;
-    padding: 16px;
+    padding: 18px 16px;
+    background: var(--bg-top);
   }
   #friend-send-form {
     flex-shrink: 0;
     display: flex;
     gap: 8px;
     padding: 12px 14px;
-    border-top: 1px solid var(--border);
+    box-shadow: 0 -1px 0 var(--border);
     background: var(--card);
   }
   #friend-send-form input {
@@ -422,25 +455,32 @@
     font-size: 0.95rem;
     outline: none;
     font-family: inherit;
+    transition: border-color 0.15s, background 0.15s;
   }
+  #friend-send-form input:focus { border-color: color-mix(in srgb, var(--primary) 55%, var(--border)); background: var(--field-bg-focus); }
   #friend-send-form button {
     width: 42px;
     height: 42px;
     flex-shrink: 0;
     border-radius: 50%;
     border: none;
-    background: var(--primary-dark);
+    background: var(--primary);
     color: white;
     font-size: 1.05rem;
     cursor: pointer;
+    box-shadow: 0 6px 16px -6px rgba(var(--primary-rgb), 0.7);
+    transition: opacity 0.15s, transform 0.15s;
   }
+  #friend-send-form button:active { opacity: 0.85; transform: scale(0.95); }
 
   /* ---------- Friend request overlay ---------- */
   #friend-request-overlay {
     display: none;
     position: absolute;
     inset: 0;
-    background: rgba(10, 8, 15, 0.7);
+    background: rgba(8, 6, 12, 0.72);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
     align-items: center;
     justify-content: center;
     z-index: 20;
@@ -449,21 +489,22 @@
   .overlay-card {
     background: var(--card);
     border: 1px solid var(--border);
-    border-radius: 18px;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
     padding: 22px;
     width: 100%;
     max-width: 320px;
     text-align: center;
   }
-  .overlay-title { font-weight: 700; font-size: 1.05rem; margin-bottom: 10px; }
-  .overlay-text { font-size: 0.9rem; margin-bottom: 18px; }
+  .overlay-title { font-weight: 700; font-size: 1.05rem; margin-bottom: 10px; letter-spacing: -0.1px; }
+  .overlay-text { font-size: 0.9rem; margin-bottom: 18px; color: var(--muted); }
   .overlay-actions { display: flex; gap: 10px; }
   .overlay-actions .btn { margin-top: 0; }
   .overlay-card input[type="text"], .overlay-card textarea {
     width: 100%;
     padding: 12px 14px;
-    border-radius: 12px;
-    border: 1.5px solid var(--border);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
     background: var(--field-bg);
     color: var(--text);
     font-size: 0.9rem;
@@ -474,7 +515,7 @@
     resize: vertical;
   }
   .overlay-card input[type="text"]:focus, .overlay-card textarea:focus {
-    border-color: var(--primary);
+    border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
     background: var(--field-bg-focus);
   }
   .overlay-status { font-size: 0.8rem; margin: -6px 0 12px; min-height: 1.1em; }
@@ -484,18 +525,30 @@
     background: none;
     border: none;
     color: var(--muted);
-    font-size: 0.78rem;
+    font-size: 0.76rem;
     text-align: center;
     margin-top: 14px;
     padding: 6px;
     width: 100%;
     cursor: pointer;
     font-family: inherit;
-    text-decoration: underline;
+    transition: color 0.15s;
   }
+  .link-btn:hover { color: var(--text); }
 
   /* ---------- ธีมส่วนตัว (ผู้ใช้ปรับเอง เก็บเฉพาะเบราว์เซอร์นี้) ---------- */
-  #theme-overlay, #nickname-overlay, #report-overlay { display: none; position: absolute; inset: 0; background: rgba(10, 8, 15, 0.7); align-items: center; justify-content: center; z-index: 21; padding: 24px; }
+  #theme-overlay, #nickname-overlay, #report-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(8, 6, 12, 0.72);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    align-items: center;
+    justify-content: center;
+    z-index: 21;
+    padding: 24px;
+  }
   .theme-card { text-align: left; max-height: 85vh; overflow-y: auto; }
   .theme-field { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
   .theme-field label { font-size: 0.85rem; color: var(--muted); }
@@ -507,7 +560,7 @@
 <div id="app">
   <div class="top-bar">
     <button id="theme-toggle-btn" type="button" title="ปรับแต่งธีมของฉัน">🎨</button>
-    <h1>💬 Private Chat</h1>
+    <h1>Private Chat</h1>
     <div class="sub" id="top-sub">คุยกันแบบส่วนตัว ไม่มีประวัติค้าง</div>
     <button id="my-code-badge" type="button" title="แตะเพื่อคัดลอกรหัสของฉัน">
       <span class="hint">รหัสฉัน</span> <span id="my-code">...</span> 📋

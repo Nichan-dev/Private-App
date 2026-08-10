@@ -7,13 +7,14 @@
 <style>
   :root {
     --primary: {{ theme.primary }};
+    --primary-rgb: {{ theme.primary_rgb }};
     --bg-top: {{ theme.bg_top }};
     --card: {{ theme.card }};
     --text: {{ theme.text }};
-    --muted: #948fac;
-    --border: #362f47;
+    --muted: color-mix(in srgb, var(--text) 58%, var(--bg-top));
+    --border: color-mix(in srgb, var(--text) 11%, transparent);
     --danger: #ff6b81;
-    --field-bg: #271f36;
+    --field-bg: color-mix(in srgb, var(--card) 88%, var(--text) 7%);
   }
   * { box-sizing: border-box; }
   body {
@@ -21,29 +22,31 @@
     background: var(--bg-top);
     color: var(--text);
     margin: 0;
-    padding: 24px;
+    padding: 28px 24px;
+    -webkit-font-smoothing: antialiased;
   }
   .wrap { max-width: 480px; margin: 0 auto; }
   .top-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
-  h1 { margin: 0; font-size: 1.3rem; }
-  a.back { color: var(--muted); font-size: 0.85rem; text-decoration: none; }
+  h1 { margin: 0; font-size: 1.2rem; font-weight: 600; letter-spacing: -0.1px; }
+  a.back { color: var(--muted); font-size: 0.82rem; text-decoration: none; transition: color 0.15s; }
   a.back:hover { color: var(--text); }
   form {
     background: var(--card);
     border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 24px;
+    border-radius: 20px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.16);
+    padding: 26px;
     display: flex;
     flex-direction: column;
     gap: 16px;
   }
-  label { display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; color: var(--muted); }
+  label { display: flex; flex-direction: column; gap: 6px; font-size: 0.83rem; color: var(--muted); }
   .color-row { display: flex; align-items: center; gap: 10px; }
   input[type="color"] {
     width: 44px;
     height: 36px;
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: 10px;
     background: var(--field-bg);
     padding: 2px;
     cursor: pointer;
@@ -54,21 +57,27 @@
     border-radius: 10px;
     color: var(--text);
     padding: 10px 12px;
-    font-size: 0.95rem;
+    font-size: 0.92rem;
+    font-family: inherit;
     flex: 1;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
   }
+  input[type="text"]:focus { outline: none; border-color: color-mix(in srgb, var(--primary) 55%, var(--border)); }
   .actions { display: flex; gap: 10px; margin-top: 4px; }
   button {
     border: none;
-    border-radius: 10px;
+    border-radius: 12px;
     padding: 12px 14px;
-    font-size: 0.95rem;
+    font-size: 0.92rem;
     font-weight: 600;
+    font-family: inherit;
     cursor: pointer;
+    transition: opacity 0.15s;
   }
-  button.save { background: var(--primary); color: #fff; flex: 1; }
+  button:active { opacity: 0.85; }
+  button.save { background: var(--primary); color: #fff; flex: 1; box-shadow: 0 8px 20px -8px rgba(var(--primary-rgb), 0.7); }
   button.reset { background: transparent; color: var(--muted); border: 1px solid var(--border); }
-  .error { color: var(--danger); font-size: 0.85rem; margin: 0; }
+  .error { color: var(--danger); font-size: 0.83rem; margin: 0; }
   .preview {
     margin-top: 4px;
     padding: 14px;
@@ -90,7 +99,7 @@
 <body>
   <div class="wrap">
     <div class="top-row">
-      <h1>🎨 ปรับแต่งธีม</h1>
+      <h1>ปรับแต่งธีม</h1>
       <a class="back" href="{{ url_for('admin_dashboard') }}">← กลับ Dashboard</a>
     </div>
 
