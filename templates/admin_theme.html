@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ปรับแต่งธีม | Admin</title>
+<style>
+  :root {
+    --primary: {{ theme.primary }};
+    --bg-top: {{ theme.bg_top }};
+    --card: {{ theme.card }};
+    --text: {{ theme.text }};
+    --muted: #948fac;
+    --border: #362f47;
+    --danger: #ff6b81;
+    --field-bg: #271f36;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: {{ theme.font | safe }}, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg-top);
+    color: var(--text);
+    margin: 0;
+    padding: 24px;
+  }
+  .wrap { max-width: 480px; margin: 0 auto; }
+  .top-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  h1 { margin: 0; font-size: 1.3rem; }
+  a.back { color: var(--muted); font-size: 0.85rem; text-decoration: none; }
+  a.back:hover { color: var(--text); }
+  form {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  label { display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; color: var(--muted); }
+  .color-row { display: flex; align-items: center; gap: 10px; }
+  input[type="color"] {
+    width: 44px;
+    height: 36px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--field-bg);
+    padding: 2px;
+    cursor: pointer;
+  }
+  input[type="text"] {
+    background: var(--field-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    padding: 10px 12px;
+    font-size: 0.95rem;
+    flex: 1;
+  }
+  .actions { display: flex; gap: 10px; margin-top: 4px; }
+  button {
+    border: none;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button.save { background: var(--primary); color: #fff; flex: 1; }
+  button.reset { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  .error { color: var(--danger); font-size: 0.85rem; margin: 0; }
+  .preview {
+    margin-top: 4px;
+    padding: 14px;
+    border-radius: 12px;
+    background: var(--bg-top);
+    border: 1px solid var(--border);
+    font-size: 0.85rem;
+  }
+  .preview .badge {
+    display: inline-block;
+    background: var(--primary);
+    color: #fff;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top-row">
+      <h1>🎨 ปรับแต่งธีม</h1>
+      <a class="back" href="{{ url_for('admin_dashboard') }}">← กลับ Dashboard</a>
+    </div>
+
+    <form method="post">
+      {% if error %}<p class="error">{{ error }}</p>{% endif %}
+
+      <label>
+        สีหลัก (ปุ่ม / ไฮไลต์)
+        <div class="color-row">
+          <input type="color" name="primary" value="{{ theme.primary }}">
+          <input type="text" value="{{ theme.primary }}" readonly>
+        </div>
+      </label>
+
+      <label>
+        สีพื้นหลัง
+        <div class="color-row">
+          <input type="color" name="bg_top" value="{{ theme.bg_top }}">
+          <input type="text" value="{{ theme.bg_top }}" readonly>
+        </div>
+      </label>
+
+      <label>
+        สีการ์ด/กล่อง
+        <div class="color-row">
+          <input type="color" name="card" value="{{ theme.card }}">
+          <input type="text" value="{{ theme.card }}" readonly>
+        </div>
+      </label>
+
+      <label>
+        สีตัวอักษร
+        <div class="color-row">
+          <input type="color" name="text" value="{{ theme.text }}">
+          <input type="text" value="{{ theme.text }}" readonly>
+        </div>
+      </label>
+
+      <label>
+        ฟอนต์ (CSS font-family)
+        <input type="text" name="font" value="{{ theme.font }}" maxlength="120">
+      </label>
+
+      <div class="preview">
+        ตัวอย่าง: <span class="badge">ปุ่ม</span> ข้อความตัวอย่าง Aa กข
+      </div>
+
+      <div class="actions">
+        <button class="save" type="submit">บันทึก</button>
+        <button class="reset" type="submit" name="reset" value="1">รีเซ็ตเป็นค่าเริ่มต้น</button>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    // sync color picker กับช่องข้อความข้าง ๆ ให้เห็นโค้ดสีตามที่เลือก
+    document.querySelectorAll('input[type="color"]').forEach((picker) => {
+      const textInput = picker.nextElementSibling;
+      picker.addEventListener("input", () => { textInput.value = picker.value; });
+    });
+  </script>
+</body>
+</html>

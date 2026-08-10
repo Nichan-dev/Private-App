@@ -7,17 +7,17 @@
 <title>Admin Dashboard</title>
 <style>
   :root {
-    --primary: #8b7cf9;
-    --bg-top: #1a1625;
-    --card: #201a2c;
-    --text: #f1eef8;
+    --primary: {{ theme.primary }};
+    --bg-top: {{ theme.bg_top }};
+    --card: {{ theme.card }};
+    --text: {{ theme.text }};
     --muted: #948fac;
     --border: #362f47;
     --field-bg: #271f36;
   }
   * { box-sizing: border-box; }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: {{ theme.font | safe }}, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     background: var(--bg-top);
     color: var(--text);
     margin: 0;
@@ -31,6 +31,7 @@
     margin-bottom: 20px;
   }
   h1 { margin: 0; font-size: 1.3rem; }
+  .top-row-links { display: flex; gap: 16px; }
   a.logout { color: var(--muted); font-size: 0.85rem; text-decoration: none; }
   a.logout:hover { color: var(--text); }
   .stats { display: flex; gap: 12px; margin-bottom: 24px; }
@@ -57,7 +58,10 @@
   <div class="wrap">
     <div class="top-row">
       <h1>📊 Admin Dashboard</h1>
-      <a class="logout" href="{{ url_for('admin_logout') }}">ออกจากระบบ</a>
+      <div class="top-row-links">
+        <a class="logout" href="{{ url_for('admin_theme') }}">🎨 ปรับแต่งธีม</a>
+        <a class="logout" href="{{ url_for('admin_logout') }}">ออกจากระบบ</a>
+      </div>
     </div>
 
     <div class="stats">

@@ -32,6 +32,36 @@ friend_messages_pending = {}  # code -> [{"from": code, "text": str, "time": str
 
 CODE_PATTERN = re.compile(r"^[A-Za-z0-9_-]{3,20}$")
 
+# ธีม UI (สี/ฟอนต์) ที่แอดมินปรับแต่งได้ ใช้ร่วมกันทั้งหน้าผู้ใช้และหน้าแอดมิน
+# (เก็บในหน่วยความจำเหมือน state อื่นๆ ของแอปนี้ รีสตาร์ทเซิร์ฟเวอร์แล้วจะกลับเป็นค่าเริ่มต้น)
+DEFAULT_THEME = {
+    "primary": "#8b7cf9",
+    "bg_top": "#1a1625",
+    "card": "#201a2c",
+    "text": "#f1eef8",
+    "font": '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+}
+theme_settings = dict(DEFAULT_THEME)
+
+COLOR_PATTERN = re.compile(r"^#[0-9a-fA-F]{6}$")
+FONT_PATTERN = re.compile(r"^[A-Za-z0-9 ,\-\"']{1,120}$")
+
+
+def darken_hex(hex_color, factor=0.15):
+    r = int(hex_color[1:3], 16)
+    g = int(hex_color[3:5], 16)
+    b = int(hex_color[5:7], 16)
+    r = max(0, round(r * (1 - factor)))
+    g = max(0, round(g * (1 - factor)))
+    b = max(0, round(b * (1 - factor)))
+    return f"#{r:02x}{g:02x}{b:02x}"
+
+
+def theme_context():
+    ctx = dict(theme_settings)
+    ctx["primary_dark"] = darken_hex(theme_settings["primary"])
+    return ctx
+
 
 def gen_room_code():
     while True:
@@ -49,7 +79,7 @@ def gen_online_code():
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", theme=theme_context())
 
 
 def admin_required(view):
@@ -70,7 +100,7 @@ def admin_login():
             session["is_admin"] = True
             return redirect(url_for("admin_dashboard"))
         error = "รหัสผ่านไม่ถูกต้อง"
-    return render_template("admin_login.html", error=error)
+    return render_template("admin_login.html", error=error, theme=theme_context())
 
 
 @app.route("/admin/logout")
@@ -99,7 +129,35 @@ def admin_dashboard():
         online_count=len(online_codes),
         room_list=room_list,
         pending_list=pending_list,
+        theme=theme_context(),
     )
+
+
+@app.route("/admin/theme", methods=["GET", "POST"])
+@admin_required
+def admin_theme():
+    error = None
+    if request.method == "POST":
+        if request.form.get("reset"):
+            theme_settings.update(DEFAULT_THEME)
+            return redirect(url_for("admin_theme"))
+
+        new_theme = {
+            "primary": request.form.get("primary", "").strip(),
+            "bg_top": request.form.get("bg_top", "").strip(),
+            "card": request.form.get("card", "").strip(),
+            "text": request.form.get("text", "").strip(),
+            "font": request.form.get("font", "").strip(),
+        }
+        if not all(COLOR_PATTERN.match(new_theme[k]) for k in ("primary", "bg_top", "card", "text")):
+            error = "รหัสสีต้องอยู่ในรูปแบบ #RRGGBB เท่านั้น"
+        elif not FONT_PATTERN.match(new_theme["font"]):
+            error = "ชื่อฟอนต์มีอักขระที่ไม่อนุญาต (ใช้ได้แค่ตัวอักษร ตัวเลข เว้นวรรค , - \" ')"
+        else:
+            theme_settings.update(new_theme)
+            return redirect(url_for("admin_theme"))
+
+    return render_template("admin_theme.html", theme=theme_context(), error=error)
 
 
 @app.route("/api/create-room", methods=["POST"])
