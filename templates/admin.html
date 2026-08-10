@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="refresh" content="5">
+<title>Admin Dashboard</title>
+<style>
+  :root {
+    --primary: #8b7cf9;
+    --bg-top: #1a1625;
+    --card: #201a2c;
+    --text: #f1eef8;
+    --muted: #948fac;
+    --border: #362f47;
+    --field-bg: #271f36;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg-top);
+    color: var(--text);
+    margin: 0;
+    padding: 24px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  .top-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  h1 { margin: 0; font-size: 1.3rem; }
+  a.logout { color: var(--muted); font-size: 0.85rem; text-decoration: none; }
+  a.logout:hover { color: var(--text); }
+  .stats { display: flex; gap: 12px; margin-bottom: 24px; }
+  .stat-card {
+    flex: 1;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    text-align: center;
+  }
+  .stat-card .num { font-size: 1.8rem; font-weight: 700; color: var(--primary); }
+  .stat-card .label { font-size: 0.8rem; color: var(--muted); margin-top: 4px; }
+  section { margin-bottom: 24px; }
+  section h2 { font-size: 1rem; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  th, td { text-align: left; padding: 10px 14px; font-size: 0.9rem; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; }
+  tr:last-child td { border-bottom: none; }
+  .empty { color: var(--muted); font-size: 0.9rem; padding: 14px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top-row">
+      <h1>📊 Admin Dashboard</h1>
+      <a class="logout" href="{{ url_for('admin_logout') }}">ออกจากระบบ</a>
+    </div>
+
+    <div class="stats">
+      <div class="stat-card">
+        <div class="num">{{ online_count }}</div>
+        <div class="label">คนออนไลน์</div>
+      </div>
+      <div class="stat-card">
+        <div class="num">{{ room_list|length }}</div>
+        <div class="label">ห้องแชทที่เปิดอยู่</div>
+      </div>
+      <div class="stat-card">
+        <div class="num">{{ pending_list|sum(attribute='count') }}</div>
+        <div class="label">ข้อความค้างส่ง (เพื่อนออฟไลน์)</div>
+      </div>
+    </div>
+
+    <section>
+      <h2>ห้องแชทที่เปิดอยู่</h2>
+      {% if room_list %}
+      <table>
+        <tr><th>รหัสห้อง</th><th>ชื่อห้อง</th><th>สมาชิก</th></tr>
+        {% for room in room_list %}
+        <tr>
+          <td>{{ room.code }}</td>
+          <td>{{ room.label or "-" }}</td>
+          <td>{{ room.members|join(", ") if room.members else "-" }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+      {% else %}
+      <div class="empty">ไม่มีห้องแชทที่เปิดอยู่ตอนนี้</div>
+      {% endif %}
+    </section>
+
+    <section>
+      <h2>ข้อความค้างส่ง (เพื่อนออฟไลน์อยู่)</h2>
+      {% if pending_list %}
+      <table>
+        <tr><th>รหัสผู้รับ</th><th>จำนวนข้อความค้าง</th></tr>
+        {% for p in pending_list %}
+        <tr><td>{{ p.code }}</td><td>{{ p.count }}</td></tr>
+        {% endfor %}
+      </table>
+      {% else %}
+      <div class="empty">ไม่มีข้อความค้างส่ง</div>
+      {% endif %}
+    </section>
+  </div>
+</body>
+</html>

@@ -7,12 +7,16 @@ import re
 import string
 from datetime import datetime
 
-from flask import Flask, jsonify, render_template, request
+from functools import wraps
+
+from flask import Flask, jsonify, redirect, render_template, request, session, url_for
 from flask_socketio import SocketIO, join_room, leave_room, emit
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-change-me")
 socketio = SocketIO(app, async_mode="eventlet", cors_allowed_origins="*")
+
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "changeme")
 
 # room_code -> {"members": {sid: name}, "label": str}
 rooms = {}
@@ -46,6 +50,56 @@ def gen_online_code():
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+def admin_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not session.get("is_admin"):
+            return redirect(url_for("admin_login"))
+        return view(*args, **kwargs)
+
+    return wrapped
+
+
+@app.route("/admin/login", methods=["GET", "POST"])
+def admin_login():
+    error = None
+    if request.method == "POST":
+        if request.form.get("password") == ADMIN_PASSWORD:
+            session["is_admin"] = True
+            return redirect(url_for("admin_dashboard"))
+        error = "รหัสผ่านไม่ถูกต้อง"
+    return render_template("admin_login.html", error=error)
+
+
+@app.route("/admin/logout")
+def admin_logout():
+    session.pop("is_admin", None)
+    return redirect(url_for("admin_login"))
+
+
+@app.route("/admin")
+@admin_required
+def admin_dashboard():
+    room_list = [
+        {
+            "code": code,
+            "label": info["label"],
+            "members": list(info["members"].values()),
+        }
+        for code, info in rooms.items()
+    ]
+    pending_list = [
+        {"code": code, "count": len(msgs)}
+        for code, msgs in friend_messages_pending.items()
+    ]
+    return render_template(
+        "admin.html",
+        online_count=len(online_codes),
+        room_list=room_list,
+        pending_list=pending_list,
+    )
 
 
 @app.route("/api/create-room", methods=["POST"])

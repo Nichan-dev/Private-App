@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin Login</title>
+<style>
+  :root {
+    --primary: #8b7cf9;
+    --bg-top: #1a1625;
+    --card: #201a2c;
+    --text: #f1eef8;
+    --muted: #948fac;
+    --border: #362f47;
+    --danger: #ff6b81;
+    --field-bg: #271f36;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg-top);
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  form {
+    width: 100%;
+    max-width: 320px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  h1 { margin: 0 0 4px; font-size: 1.2rem; }
+  input {
+    background: var(--field-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    padding: 12px 14px;
+    font-size: 1rem;
+  }
+  button {
+    background: var(--primary);
+    border: none;
+    border-radius: 10px;
+    color: #fff;
+    padding: 12px 14px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .error { color: var(--danger); font-size: 0.9rem; margin: 0; }
+</style>
+</head>
+<body>
+  <form method="post">
+    <h1>🔒 Admin Login</h1>
+    {% if error %}<p class="error">{{ error }}</p>{% endif %}
+    <input type="password" name="password" placeholder="รหัสผ่านแอดมิน" autofocus required>
+    <button type="submit">เข้าสู่ระบบ</button>
+  </form>
+</body>
+</html>
