@@ -6,13 +6,14 @@ import os
 import random
 import re
 import string
+import time
 import uuid
 from datetime import datetime
 
 from functools import wraps
 
 from flask import Flask, jsonify, redirect, render_template, request, session, url_for
-from flask_socketio import SocketIO, join_room, leave_room, emit
+from flask_socketio import SocketIO, disconnect, join_room, leave_room, emit
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-change-me")
@@ -33,6 +34,7 @@ sid_to_code = {}    # sid -> code
 friend_messages_pending = {}  # code -> [{"from": code, "text": str, "time": str}, ...]
 
 CODE_PATTERN = re.compile(r"^[A-Za-z0-9_-]{3,20}$")
+ONLINE_CODE_PATTERN = re.compile(r"^[A-Z2-9]{6}$")
 
 # ธีม UI (สี/ฟอนต์) ที่แอดมินปรับแต่งได้ ใช้ร่วมกันทั้งหน้าผู้ใช้และหน้าแอดมิน
 # เก็บลงไฟล์ theme_settings.json ด้วย เพื่อให้ค่าที่ตั้งไว้อยู่ถาวรข้ามการรีสตาร์ทเซิร์ฟเวอร์
@@ -134,6 +136,64 @@ def save_reports():
 
 reports = load_reports()
 
+# รหัสส่วนตัวที่ถูกแอดมินแบน -> code -> เวลาหมดแบน (unix timestamp) หรือ None ถ้าแบนถาวร
+# เก็บลงไฟล์เหมือนธีม/รายงาน เพื่อไม่ให้หายตอนเซิร์ฟเวอร์รีสตาร์ท (แต่หายเมื่อ deploy ใหม่)
+BANS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bans.json")
+
+BAN_DURATIONS = {
+    "1h": 3600,
+    "24h": 86400,
+    "7d": 7 * 86400,
+    "30d": 30 * 86400,
+    "permanent": None,
+}
+BAN_DURATION_LABELS = {
+    "1h": "1 ชั่วโมง",
+    "24h": "1 วัน",
+    "7d": "7 วัน",
+    "30d": "30 วัน",
+    "permanent": "ถาวร",
+}
+
+
+def load_bans():
+    try:
+        with open(BANS_FILE, "r", encoding="utf-8") as f:
+            saved = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return {}
+
+    if not isinstance(saved, dict):
+        return {}
+    result = {}
+    for code, until in saved.items():
+        if isinstance(code, str) and ONLINE_CODE_PATTERN.match(code) and (until is None or isinstance(until, (int, float))):
+            result[code] = until
+    return result
+
+
+def save_bans():
+    try:
+        with open(BANS_FILE, "w", encoding="utf-8") as f:
+            json.dump(banned_codes, f, ensure_ascii=False, indent=2)
+    except OSError:
+        pass
+
+
+banned_codes = load_bans()
+
+
+def ban_info(code):
+    """คืนค่า until ถ้ายังถูกแบนอยู่ (และล้างทิ้งถ้าแบนหมดอายุแล้ว) ไม่งั้นคืน False"""
+    if code not in banned_codes:
+        return False
+    until = banned_codes[code]
+    if until is not None and until <= time.time():
+        del banned_codes[code]
+        save_bans()
+        return False
+    return until
+
 
 def gen_room_code():
     while True:
@@ -196,14 +256,53 @@ def admin_dashboard():
         {"code": code, "count": len(msgs)}
         for code, msgs in friend_messages_pending.items()
     ]
+    banned_list = []
+    for code in list(banned_codes.keys()):
+        until = ban_info(code)
+        if until is False:
+            continue
+        until_label = "ถาวร" if until is None else datetime.fromtimestamp(until).strftime("%d/%m/%Y %H:%M")
+        banned_list.append({"code": code, "until_label": until_label})
+
     return render_template(
         "admin.html",
         online_count=len(online_codes),
         room_list=room_list,
         pending_list=pending_list,
         reports=list(reversed(reports)),
+        banned_list=banned_list,
+        ban_duration_options=BAN_DURATION_LABELS,
         theme=theme_context(),
     )
+
+
+@app.route("/admin/ban", methods=["POST"])
+@admin_required
+def admin_ban():
+    code = (request.form.get("code") or "").strip().upper()
+    duration = request.form.get("duration")
+
+    if ONLINE_CODE_PATTERN.match(code) and duration in BAN_DURATIONS:
+        seconds = BAN_DURATIONS[duration]
+        until = None if seconds is None else time.time() + seconds
+        banned_codes[code] = until
+        save_bans()
+
+        target_sid = online_codes.get(code)
+        if target_sid:
+            socketio.emit("banned", {"until": until}, room=target_sid)
+            socketio.server.disconnect(target_sid, namespace="/")
+
+    return redirect(url_for("admin_dashboard"))
+
+
+@app.route("/admin/unban", methods=["POST"])
+@admin_required
+def admin_unban():
+    code = (request.form.get("code") or "").strip().upper()
+    banned_codes.pop(code, None)
+    save_bans()
+    return redirect(url_for("admin_dashboard"))
 
 
 @app.route("/admin/reports/delete", methods=["POST"])
@@ -214,6 +313,43 @@ def admin_delete_report():
     reports = [r for r in reports if r["id"] != report_id]
     save_reports()
     return redirect(url_for("admin_dashboard"))
+
+
+@app.route("/admin/reports/reply", methods=["POST"])
+@admin_required
+def admin_reply_report():
+    report_id = request.form.get("id")
+    reply_text = (request.form.get("reply") or "").strip()[:500]
+    for r in reports:
+        if r["id"] == report_id:
+            if reply_text:
+                r["reply"] = reply_text
+                r["reply_time"] = datetime.now().strftime("%d/%m %H:%M")
+            else:
+                r.pop("reply", None)
+                r.pop("reply_time", None)
+            break
+    save_reports()
+    return redirect(url_for("admin_dashboard"))
+
+
+@app.route("/api/my-reports")
+def api_my_reports():
+    code = (request.args.get("code") or "").strip().upper()
+    if not code:
+        return jsonify([])
+    mine = [
+        {
+            "id": r["id"],
+            "message": r["message"],
+            "time": r["time"],
+            "reply": r.get("reply"),
+            "reply_time": r.get("reply_time"),
+        }
+        for r in reports
+        if r.get("code") == code
+    ]
+    return jsonify(list(reversed(mine)))
 
 
 @app.route("/admin/theme", methods=["GET", "POST"])
@@ -283,9 +419,6 @@ def api_report():
     return jsonify({"ok": True})
 
 
-ONLINE_CODE_PATTERN = re.compile(r"^[A-Z2-9]{6}$")
-
-
 @socketio.on("register_code")
 def on_register_code(data):
     requested_code = (data.get("code") or "").strip().upper()
@@ -299,6 +432,12 @@ def on_register_code(data):
         code = requested_code
     else:
         code = gen_online_code()
+
+    until = ban_info(code)
+    if until is not False:
+        emit("banned", {"until": until})
+        disconnect()
+        return
 
     online_codes[code] = request.sid
     sid_to_code[request.sid] = code

@@ -535,6 +535,29 @@
     transition: color 0.15s;
   }
   .link-btn:hover { color: var(--text); }
+  .link-btn.has-badge::after {
+    content: "";
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--danger);
+    margin-left: 5px;
+    vertical-align: middle;
+  }
+
+  #report-history { max-height: 160px; overflow-y: auto; display: none; margin-bottom: 14px; }
+  .my-report-item { padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .my-report-item:last-child { border-bottom: none; }
+  .my-report-item .msg-text { font-size: 0.85rem; color: var(--text); }
+  .my-report-item .reply-box {
+    margin-top: 6px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: rgba(var(--primary-rgb), 0.12);
+    font-size: 0.82rem;
+  }
+  .my-report-item .reply-label { font-size: 0.7rem; color: var(--muted); margin-bottom: 2px; }
 
   /* ---------- ธีมส่วนตัว (ผู้ใช้ปรับเอง เก็บเฉพาะเบราว์เซอร์นี้) ---------- */
   #theme-overlay, #nickname-overlay, #report-overlay {
@@ -549,6 +572,20 @@
     z-index: 21;
     padding: 24px;
   }
+
+  #banned-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(8, 6, 12, 0.88);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    align-items: center;
+    justify-content: center;
+    z-index: 30;
+    padding: 24px;
+  }
+  #banned-overlay .overlay-title { color: var(--danger); }
   .theme-card { text-align: left; max-height: 85vh; overflow-y: auto; }
   .theme-field { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
   .theme-field label { font-size: 0.85rem; color: var(--muted); }
@@ -690,12 +727,20 @@
     <div class="overlay-card">
       <div class="overlay-title">🚩 รายงานปัญหา</div>
       <div class="overlay-text">อธิบายปัญหาที่เจอ ข้อความจะถูกส่งไปหาแอดมิน</div>
+      <div id="report-history"></div>
       <textarea id="report-text" maxlength="500" rows="4" placeholder="เช่น กดปุ่มนี้แล้วไม่ทำงาน..."></textarea>
       <div id="report-status" class="overlay-status"></div>
       <div class="overlay-actions">
         <button id="report-cancel" type="button" class="btn btn-outline">ยกเลิก</button>
         <button id="report-submit" type="button" class="btn btn-primary">ส่งรายงาน</button>
       </div>
+    </div>
+  </div>
+
+  <div id="banned-overlay">
+    <div class="overlay-card">
+      <div class="overlay-title">🚫 บัญชีนี้ถูกระงับการใช้งาน</div>
+      <div class="overlay-text" id="banned-text"></div>
     </div>
   </div>
 </div>
@@ -806,6 +851,19 @@
       myCode = data.code;
       myCodeEl.textContent = myCode;
       localStorage.setItem("myChatCode", myCode);
+      checkReportBadge();
+    });
+
+    socket.on("banned", (data) => {
+      const bannedTextEl = document.getElementById("banned-text");
+      if (data.until) {
+        const untilStr = new Date(data.until * 1000).toLocaleString("th-TH");
+        bannedTextEl.textContent = `บัญชีนี้ถูกระงับการใช้งานจนถึง ${untilStr}`;
+      } else {
+        bannedTextEl.textContent = "บัญชีนี้ถูกระงับการใช้งานถาวร";
+      }
+      document.getElementById("banned-overlay").style.display = "flex";
+      socket.disconnect();
     });
 
     document.getElementById("my-code-badge").addEventListener("click", () => {
@@ -858,16 +916,65 @@
       themeOverlayEl.style.display = "none";
     });
 
-    // --- รายงานปัญหา (ส่งไปหาแอดมิน) ---
+    // --- รายงานปัญหา (ส่งไปหาแอดมิน) + ดูคำตอบกลับ ---
     const reportOverlayEl = document.getElementById("report-overlay");
     const reportTextEl = document.getElementById("report-text");
     const reportStatusEl = document.getElementById("report-status");
+    const reportHistoryEl = document.getElementById("report-history");
+    const reportBtnEl = document.getElementById("report-problem-btn");
+    const REPORT_SEEN_KEY = "seenReportReplies";
 
-    document.getElementById("report-problem-btn").addEventListener("click", () => {
+    function getSeenReportReplies() {
+      try { return JSON.parse(localStorage.getItem(REPORT_SEEN_KEY) || "{}"); }
+      catch { return {}; }
+    }
+
+    function fetchMyReports() {
+      if (!myCode) return Promise.resolve([]);
+      return fetch(`/api/my-reports?code=${encodeURIComponent(myCode)}`)
+        .then((res) => (res.ok ? res.json() : []))
+        .catch(() => []);
+    }
+
+    function checkReportBadge() {
+      fetchMyReports().then((myReports) => {
+        const seen = getSeenReportReplies();
+        const hasUnseen = myReports.some((r) => r.reply && seen[r.id] !== r.reply_time);
+        reportBtnEl.classList.toggle("has-badge", hasUnseen);
+      });
+    }
+
+    function renderReportHistory(myReports) {
+      reportHistoryEl.innerHTML = "";
+      if (!myReports.length) {
+        reportHistoryEl.style.display = "none";
+        return;
+      }
+      reportHistoryEl.style.display = "block";
+      for (const r of myReports) {
+        const item = document.createElement("div");
+        item.className = "my-report-item";
+        let html = `<div class="msg-text">${escapeHtml(r.message)}</div>`;
+        if (r.reply) {
+          html += `<div class="reply-box"><div class="reply-label">แอดมินตอบกลับ · ${escapeHtml(r.reply_time || "")}</div>${escapeHtml(r.reply)}</div>`;
+        }
+        item.innerHTML = html;
+        reportHistoryEl.appendChild(item);
+      }
+      const seen = getSeenReportReplies();
+      for (const r of myReports) {
+        if (r.reply) seen[r.id] = r.reply_time;
+      }
+      localStorage.setItem(REPORT_SEEN_KEY, JSON.stringify(seen));
+      reportBtnEl.classList.remove("has-badge");
+    }
+
+    reportBtnEl.addEventListener("click", () => {
       reportTextEl.value = "";
       reportStatusEl.textContent = "";
       reportStatusEl.className = "overlay-status";
       reportOverlayEl.style.display = "flex";
+      fetchMyReports().then(renderReportHistory);
     });
 
     document.getElementById("report-cancel").addEventListener("click", () => {

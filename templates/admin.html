@@ -58,13 +58,14 @@
   th { color: var(--muted); font-weight: 600; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.4px; }
   tr:last-child td { border-bottom: none; }
   .empty { color: var(--muted); font-size: 0.88rem; padding: 16px; background: var(--card); border: 1px solid var(--border); border-radius: 14px; }
-  .report-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 13px 16px; border-bottom: 1px solid var(--border); }
+  .report-row { padding: 13px 16px; border-bottom: 1px solid var(--border); }
   .report-row:last-child { border-bottom: none; }
+  .report-row-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
   .report-body { flex: 1; }
   .report-meta { font-size: 0.74rem; color: var(--muted); margin-bottom: 4px; }
   .report-text { font-size: 0.88rem; white-space: pre-wrap; word-break: break-word; }
-  .report-row form { flex-shrink: 0; }
-  .report-row button {
+  .report-row-top form { flex-shrink: 0; }
+  .report-row-top button {
     background: transparent;
     border: 1px solid var(--border);
     color: var(--muted);
@@ -75,8 +76,93 @@
     font-family: inherit;
     transition: color 0.15s, border-color 0.15s;
   }
-  .report-row button:hover { color: var(--danger); border-color: var(--danger); }
+  .report-row-top button:hover { color: var(--danger); border-color: var(--danger); }
   .reports-list { background: var(--card); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-sm); overflow: hidden; }
+
+  .report-reply {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(var(--primary-rgb), 0.1);
+    border: 1px solid rgba(var(--primary-rgb), 0.25);
+  }
+  .report-reply-meta { font-size: 0.72rem; color: var(--muted); margin-bottom: 3px; }
+  .report-reply-text { font-size: 0.86rem; white-space: pre-wrap; word-break: break-word; }
+  .report-reply-form { display: flex; gap: 8px; margin-top: 10px; }
+  .report-reply-form input {
+    flex: 1;
+    background: var(--field-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 8px 10px;
+    font-size: 0.82rem;
+    font-family: inherit;
+    outline: none;
+  }
+  .report-reply-form button {
+    background: var(--primary);
+    border: none;
+    color: #fff;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    flex-shrink: 0;
+  }
+
+  .ban-form {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: var(--shadow-sm);
+    padding: 14px 16px;
+    margin-bottom: 14px;
+  }
+  .ban-form input[type="text"], .ban-form select {
+    background: var(--field-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    padding: 9px 12px;
+    font-size: 0.86rem;
+    font-family: inherit;
+    outline: none;
+  }
+  .ban-form input[type="text"] { flex: 1; min-width: 140px; text-transform: uppercase; }
+  .ban-form button {
+    background: var(--danger);
+    border: none;
+    color: #fff;
+    border-radius: 10px;
+    padding: 9px 16px;
+    font-size: 0.86rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .banned-list { background: var(--card); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-sm); overflow: hidden; }
+  .banned-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .banned-row:last-child { border-bottom: none; }
+  .banned-row .code { font-weight: 700; letter-spacing: 0.3px; }
+  .banned-row .until { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+  .banned-row button {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 0.76rem;
+    cursor: pointer;
+    font-family: inherit;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .banned-row button:hover { color: var(--primary); border-color: var(--primary); }
 </style>
 </head>
 <body>
@@ -106,7 +192,42 @@
         <div class="num">{{ reports|length }}</div>
         <div class="label">รายงานปัญหา</div>
       </div>
+      <div class="stat-card">
+        <div class="num">{{ banned_list|length }}</div>
+        <div class="label">ถูกแบนอยู่</div>
+      </div>
     </div>
+
+    <section>
+      <h2>แบนผู้ใช้</h2>
+      <form class="ban-form" method="post" action="{{ url_for('admin_ban') }}">
+        <input type="text" name="code" maxlength="6" placeholder="รหัสผู้ใช้ (6 ตัว)" required>
+        <select name="duration">
+          {% for key, label in ban_duration_options.items() %}
+          <option value="{{ key }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit">แบน</button>
+      </form>
+      {% if banned_list %}
+      <div class="banned-list">
+        {% for b in banned_list %}
+        <div class="banned-row">
+          <div>
+            <div class="code">{{ b.code }}</div>
+            <div class="until">หมดแบน: {{ b.until_label }}</div>
+          </div>
+          <form method="post" action="{{ url_for('admin_unban') }}">
+            <input type="hidden" name="code" value="{{ b.code }}">
+            <button type="submit">ปลดแบน</button>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty">ยังไม่มีใครถูกแบน</div>
+      {% endif %}
+    </section>
 
     <section>
       <h2>รายงานปัญหาจากผู้ใช้</h2>
@@ -114,13 +235,26 @@
       <div class="reports-list">
         {% for r in reports %}
         <div class="report-row">
-          <div class="report-body">
-            <div class="report-meta">{{ r.time }} · รหัส {{ r.code }}</div>
-            <div class="report-text">{{ r.message }}</div>
+          <div class="report-row-top">
+            <div class="report-body">
+              <div class="report-meta">{{ r.time }} · รหัส {{ r.code }}</div>
+              <div class="report-text">{{ r.message }}</div>
+            </div>
+            <form method="post" action="{{ url_for('admin_delete_report') }}">
+              <input type="hidden" name="id" value="{{ r.id }}">
+              <button type="submit">ลบ</button>
+            </form>
           </div>
-          <form method="post" action="{{ url_for('admin_delete_report') }}">
+          {% if r.reply %}
+          <div class="report-reply">
+            <div class="report-reply-meta">ตอบกลับเมื่อ {{ r.reply_time }}</div>
+            <div class="report-reply-text">{{ r.reply }}</div>
+          </div>
+          {% endif %}
+          <form class="report-reply-form" method="post" action="{{ url_for('admin_reply_report') }}">
             <input type="hidden" name="id" value="{{ r.id }}">
-            <button type="submit">ลบ</button>
+            <input type="text" name="reply" maxlength="500" placeholder="{{ 'แก้ไขคำตอบ...' if r.reply else 'พิมพ์คำตอบกลับ...' }}" value="{{ r.reply or '' }}">
+            <button type="submit">{{ 'แก้ไข' if r.reply else 'ตอบกลับ' }}</button>
           </form>
         </div>
         {% endfor %}
