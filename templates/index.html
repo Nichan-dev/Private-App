@@ -390,6 +390,22 @@
   }
   .friend-row:last-child { margin-bottom: 0; }
   .friend-row .friend-code { font-weight: 700; letter-spacing: 0.3px; }
+  .unread-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    margin-left: 7px;
+    border-radius: 999px;
+    background: var(--danger);
+    color: #fff;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0;
+    vertical-align: middle;
+  }
   .friend-row-actions { display: flex; align-items: center; gap: 6px; }
   .friend-edit-btn { background: transparent !important; padding: 4px !important; font-size: 0.9rem; }
   .friend-row button {
@@ -1087,10 +1103,15 @@
       }
       section.style.display = "block";
 
-      for (const f of friends) {
+      // เรียงคนที่ทักมา/คุยด้วยล่าสุดไว้บนสุด
+      const sorted = [...friends].sort((a, b) => getLastActivity(b.code) - getLastActivity(a.code));
+
+      for (const f of sorted) {
         const row = document.createElement("div");
         row.className = "friend-row";
-        row.innerHTML = `<span class="friend-code">${escapeHtml(getFriendLabel(f.code))}</span>`;
+        const unread = getUnreadCount(f.code);
+        const badge = unread > 0 ? `<span class="unread-badge">${unread > 99 ? "99+" : unread}</span>` : "";
+        row.innerHTML = `<span class="friend-code">${escapeHtml(getFriendLabel(f.code))}${badge}</span>`;
 
         const actions = document.createElement("div");
         actions.className = "friend-row-actions";
@@ -1115,6 +1136,16 @@
     function getFriendLabel(code) {
       const friend = getFriends().find((f) => f.code === code);
       return friend && friend.nickname ? friend.nickname : code;
+    }
+
+    function getUnreadCount(code) {
+      const list = messagesByFriend[code] || [];
+      return list.reduce((n, m) => n + (!m.mine && !m.readAt ? 1 : 0), 0);
+    }
+
+    function getLastActivity(code) {
+      const list = messagesByFriend[code] || [];
+      return list.reduce((max, m) => Math.max(max, m.createdAt || 0), 0);
     }
 
     // --- แผงตั้งชื่อเล่นเพื่อน (แทน prompt() เดิม เพราะ in-app browser บางตัว เช่น LINE/Facebook บล็อก prompt() ไว้) ---
@@ -1154,8 +1185,6 @@
       if (e.key === "Enter") saveNickname();
     });
 
-    renderFriends();
-
     // --- แชทกับเพื่อน (แยกจากระบบห้อง) ---
     const friendChatEl = document.getElementById("friend-chat");
     const friendMessagesEl = document.getElementById("friend-messages");
@@ -1185,6 +1214,7 @@
       if (idx === -1) return;
       list.splice(idx, 1);
       saveFriendMessages();
+      renderFriends();
       if (activeFriendCode === code) renderFriendMessages();
     }
 
@@ -1205,6 +1235,7 @@
       msg.seen = true;
       scheduleReadDeletion(code, msg);
       saveFriendMessages();
+      if (!msg.mine) renderFriends();
     }
 
     function loadFriendMessages() {
@@ -1232,6 +1263,7 @@
     }
 
     loadFriendMessages();
+    renderFriends();
 
     function markAllTheirsRead(code) {
       const list = messagesByFriend[code] || [];
@@ -1283,6 +1315,7 @@
       saveFriendMessages();
       // ถ้ายังไม่เคยเป็นเพื่อนในลิสต์ (เผื่อกรณีข้อความมาก่อนรีเฟรช) ก็เพิ่มให้อัตโนมัติ
       if (!getFriends().some((f) => f.code === data.from)) addFriend(data.from);
+      renderFriends();
       if (activeFriendCode === data.from) {
         renderFriendMessages();
         if (document.visibilityState === "visible") {
@@ -1327,6 +1360,7 @@
       scheduleUnreadDeletion(activeFriendCode, msg);
       saveFriendMessages();
       renderFriendMessages();
+      renderFriends();
       input.value = "";
       stopFriendTyping();
     });
