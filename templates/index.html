@@ -56,9 +56,35 @@
     letter-spacing: 0.1px;
   }
 
+  /* บนมือถือ/จอแคบ ตัว wrapper สองอันนี้จะ "หายไป" (display: contents) ทำให้
+     #setup / #chat / #friend-chat / #empty-state เป็น flex child ของ #app โดยตรง
+     เหมือนเดิมทุกอย่าง — จะกลายเป็นเลย์เอาต์แบบไซด์บาร์ก็ต่อเมื่อจอกว้างพอ (ดู media query ด้านล่าง) */
+  #app-body, #main-pane { display: contents; }
+  #empty-state { display: none; }
+
   @media (min-width: 480px) {
     body { padding: 24px; }
     #app { height: 92vh; border-radius: var(--radius-lg); border: 1px solid var(--border); }
+  }
+
+  /* ---------- เลย์เอาต์แบบคอม/แล็ปท็อป: ไซด์บาร์ + แชทหลัก ---------- */
+  @media (min-width: 900px) {
+    body { padding: 32px; }
+    #app { max-width: 1100px; height: 88vh; }
+    #app-body { display: flex; flex-direction: row; flex: 1; min-height: 0; }
+    #setup { flex: 0 0 300px; border-right: 1px solid var(--border); }
+    #main-pane { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+    #empty-state {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.6;
+      padding: 24px;
+    }
   }
 
   /* ---------- Header ---------- */
@@ -611,6 +637,7 @@
     </button>
   </div>
 
+  <div id="app-body">
   <div id="setup">
     <div class="name-row">
       <div class="field-label">ชื่อของคุณ</div>
@@ -646,6 +673,9 @@
     <button id="report-problem-btn" type="button" class="link-btn">รายงานปัญหา</button>
   </div>
 
+  <div id="main-pane">
+  <div id="empty-state">เลือกเพื่อน หรือสร้าง/เข้าห้องแชท<br>เพื่อเริ่มคุยกัน</div>
+
   <div id="chat">
     <div id="room-info">
       <span id="room-label"></span>
@@ -672,6 +702,8 @@
       <input type="text" id="friend-text-input" placeholder="พิมพ์ข้อความ..." autocomplete="off">
       <button type="submit" aria-label="ส่ง">➤</button>
     </form>
+  </div>
+  </div>
   </div>
 
   <div id="friend-request-overlay">
@@ -813,9 +845,30 @@
 
     const setupEl = document.getElementById("setup");
     const chatEl = document.getElementById("chat");
+    const emptyStateEl = document.getElementById("empty-state");
     const errorEl = document.getElementById("error");
     const messagesEl = document.getElementById("messages");
     const roomCodeEl = document.getElementById("room-code");
+
+    // --- เลย์เอาต์แบบไซด์บาร์บนจอกว้าง (คอม/แล็ปท็อป) ---
+    function isDesktopLayout() {
+      return window.matchMedia("(min-width: 900px)").matches;
+    }
+
+    // เรียกทุกครั้งที่มีการเปิด/ปิดแชท หรือ resize หน้าต่าง เพื่อให้ไซด์บาร์กับ
+    // "เลือกแชทเพื่อเริ่มคุย" แสดงถูกต้องตามขนาดจอปัจจุบันเสมอ
+    function syncLayout() {
+      const chatVisible = chatEl.style.display === "flex" || friendChatEl.style.display === "flex";
+      if (isDesktopLayout()) {
+        setupEl.style.display = "flex";
+        emptyStateEl.style.display = chatVisible ? "none" : "flex";
+      } else {
+        setupEl.style.display = chatVisible ? "none" : "flex";
+        emptyStateEl.style.display = "none";
+      }
+    }
+
+    window.addEventListener("resize", syncLayout);
 
     document.getElementById("create-btn").onclick = async () => {
       errorEl.textContent = "";
@@ -1255,6 +1308,7 @@
 
     loadFriendMessages();
     renderFriends();
+    syncLayout();
 
     function markAllTheirsRead(code) {
       const list = messagesByFriend[code] || [];
@@ -1269,9 +1323,9 @@
       activeFriendCode = code;
       document.getElementById("friend-chat-name").textContent = getFriendLabel(code);
       friendTypingEl.textContent = "";
-      setupEl.style.display = "none";
       chatEl.style.display = "none";
       friendChatEl.style.display = "flex";
+      syncLayout();
       renderFriendMessages();
       socket.emit("friend_seen", { code });
       markAllTheirsRead(code);
@@ -1280,7 +1334,7 @@
     document.getElementById("friend-chat-back").onclick = () => {
       activeFriendCode = null;
       friendChatEl.style.display = "none";
-      setupEl.style.display = "flex";
+      syncLayout();
     };
 
     function renderFriendMessages() {
@@ -1396,8 +1450,8 @@
     });
 
     socket.on("joined", (data) => {
-      setupEl.style.display = "none";
       chatEl.style.display = "flex";
+      syncLayout();
       roomCodeEl.textContent = data.room;
       document.getElementById("room-label").textContent = data.label ? data.label : "ห้องแชท";
       window._room = data.room;
