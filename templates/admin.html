@@ -16,7 +16,6 @@
     --border: color-mix(in srgb, var(--text) 11%, transparent);
     --field-bg: color-mix(in srgb, var(--card) 88%, var(--text) 7%);
     --danger: #ff6b81;
-    --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.16);
   }
   * { box-sizing: border-box; }
   body {
@@ -45,7 +44,6 @@
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: 16px;
-    box-shadow: var(--shadow-sm);
     padding: 18px 16px;
     text-align: center;
   }
@@ -53,7 +51,7 @@
   .stat-card .label { font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
   section { margin-bottom: 24px; }
   section h2 { font-size: 0.92rem; color: var(--muted); margin: 0 0 10px; font-weight: 600; letter-spacing: 0.1px; }
-  table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-sm); overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
   th, td { text-align: left; padding: 11px 16px; font-size: 0.88rem; border-bottom: 1px solid var(--border); }
   th { color: var(--muted); font-weight: 600; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.4px; }
   tr:last-child td { border-bottom: none; }
@@ -77,7 +75,7 @@
     transition: color 0.15s, border-color 0.15s;
   }
   .report-row-top button:hover { color: var(--danger); border-color: var(--danger); }
-  .reports-list { background: var(--card); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-sm); overflow: hidden; }
+  .reports-list { background: var(--card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
 
   .report-reply {
     margin-top: 10px;
@@ -120,7 +118,6 @@
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: 14px;
-    box-shadow: var(--shadow-sm);
     padding: 14px 16px;
     margin-bottom: 14px;
   }
@@ -146,7 +143,7 @@
     font-family: inherit;
     cursor: pointer;
   }
-  .banned-list { background: var(--card); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-sm); overflow: hidden; }
+  .banned-list { background: var(--card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
   .banned-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
   .banned-row:last-child { border-bottom: none; }
   .banned-row .code { font-weight: 700; letter-spacing: 0.3px; }

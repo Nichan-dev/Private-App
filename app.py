@@ -41,9 +41,9 @@ ONLINE_CODE_PATTERN = re.compile(r"^[A-Z2-9]{6}$")
 # (ต่างจาก state อื่นๆ ของแอปนี้ที่เก็บแค่ในหน่วยความจำ)
 DEFAULT_THEME = {
     "primary": "#8b7cf9",
-    "bg_top": "#1a1625",
-    "card": "#201a2c",
-    "text": "#f1eef8",
+    "bg_top": "#0f0f11",
+    "card": "#1a1a1d",
+    "text": "#f2f2f2",
     "font": '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
 }
 THEME_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "theme_settings.json")
