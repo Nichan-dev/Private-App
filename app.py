@@ -105,6 +105,19 @@ def theme_context():
 # (แต่จะหายถ้ามีการ deploy โค้ดใหม่ เพราะ Render สร้าง container ใหม่ทุกครั้งที่ deploy)
 REPORTS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reports.json")
 
+# กันสแปม: จำกัดให้ส่งรายงาน (ปัญหา หรือ รายงานผู้ใช้) ได้ห่างกันอย่างน้อย 5 วิ ต่อ IP
+REPORT_COOLDOWN_SECONDS = 5
+last_report_time = {}  # ip -> unix timestamp ของรายงานล่าสุดที่ส่งสำเร็จ
+
+
+def report_cooldown_active():
+    ip = request.remote_addr or "unknown"
+    return time.time() - last_report_time.get(ip, 0) < REPORT_COOLDOWN_SECONDS
+
+
+def mark_report_submitted():
+    last_report_time[request.remote_addr or "unknown"] = time.time()
+
 
 def load_reports():
     try:
@@ -416,6 +429,9 @@ def admin_theme():
 
 @app.route("/api/report", methods=["POST"])
 def api_report():
+    if report_cooldown_active():
+        return jsonify({"error": f"ส่งรายงานถี่เกินไป กรุณารออีก {REPORT_COOLDOWN_SECONDS} วินาทีแล้วลองใหม่"}), 429
+
     data = request.get_json(silent=True) or {}
     message = (data.get("message") or "").strip()[:500]
     code = (data.get("code") or "").strip().upper()[:10]
@@ -430,11 +446,15 @@ def api_report():
         "time": datetime.now().strftime("%d/%m %H:%M"),
     })
     save_reports()
+    mark_report_submitted()
     return jsonify({"ok": True})
 
 
 @app.route("/api/report-user", methods=["POST"])
 def api_report_user():
+    if report_cooldown_active():
+        return jsonify({"error": f"ส่งรายงานถี่เกินไป กรุณารออีก {REPORT_COOLDOWN_SECONDS} วินาทีแล้วลองใหม่"}), 429
+
     reporter_code = (request.form.get("code") or "").strip().upper()[:10]
     reported_code = (request.form.get("reported_code") or "").strip().upper()
     message = (request.form.get("message") or "").strip()[:500]
@@ -467,6 +487,7 @@ def api_report_user():
         "evidence_filename": evidence_filename,
     })
     save_reports()
+    mark_report_submitted()
     return jsonify({"ok": True})
 
 

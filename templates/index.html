@@ -958,14 +958,15 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message, code: myCode }),
       })
-        .then((res) => { if (!res.ok) throw new Error(); })
-        .then(() => {
+        .then((res) => res.json().then((data) => ({ ok: res.ok, data })))
+        .then(({ ok, data }) => {
+          if (!ok) throw new Error(data.error || "");
           reportStatusEl.textContent = "ส่งรายงานแล้ว ขอบคุณครับ";
           reportStatusEl.className = "overlay-status success";
           setTimeout(() => { reportOverlayEl.style.display = "none"; }, 1200);
         })
-        .catch(() => {
-          reportStatusEl.textContent = "ส่งไม่สำเร็จ ลองใหม่อีกครั้ง";
+        .catch((err) => {
+          reportStatusEl.textContent = err.message || "ส่งไม่สำเร็จ ลองใหม่อีกครั้ง";
           reportStatusEl.className = "overlay-status error";
         });
     });
