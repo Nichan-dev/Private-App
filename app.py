@@ -11,11 +11,12 @@ from datetime import datetime
 
 from functools import wraps
 
-from flask import Flask, jsonify, redirect, render_template, request, session, url_for
+from flask import Flask, jsonify, redirect, render_template, request, send_from_directory, session, url_for
 from flask_socketio import SocketIO, disconnect, emit
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-change-me")
+app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024  # กันไม่ให้ request ใหญ่เกินไปตั้งแต่ระดับ Flask (รองรับไฟล์แนบสูงสุด 5MB)
 socketio = SocketIO(app, async_mode="eventlet", cors_allowed_origins="*")
 
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "changeme")
@@ -131,6 +132,15 @@ def save_reports():
 
 reports = load_reports()
 
+# ไฟล์แนบ (หลักฐาน) ตอนรายงานผู้ใช้ -> เก็บไว้ในโฟลเดอร์นี้ ตั้งชื่อไฟล์ใหม่แบบสุ่มเสมอ
+# (ไม่ใช้ชื่อไฟล์เดิมจากผู้ใช้ กันปัญหาชื่อไฟล์ชนกัน/แฝงโค้ด) เข้าถึงได้เฉพาะแอดมินเท่านั้น
+UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+ALLOWED_EVIDENCE_EXT = {"png", "jpg", "jpeg", "gif", "webp"}
+MAX_EVIDENCE_BYTES = 5 * 1024 * 1024  # 5MB
+EVIDENCE_FILENAME_PATTERN = re.compile(r"^[0-9a-f]{32}\.(png|jpg|jpeg|gif|webp)$")
+
 # รหัสส่วนตัวที่ถูกแอดมินแบน -> code -> เวลาหมดแบน (unix timestamp) หรือ None ถ้าแบนถาวร
 # เก็บลงไฟล์เหมือนธีม/รายงาน เพื่อไม่ให้หายตอนเซิร์ฟเวอร์รีสตาร์ท (แต่หายเมื่อ deploy ใหม่)
 BANS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bans.json")
@@ -188,6 +198,43 @@ def ban_info(code):
         save_bans()
         return False
     return until
+
+
+# รหัสที่แต่ละคน "บล็อก" ไว้ -> code -> [รหัสที่ถูกบล็อก, ...]
+# บังคับที่ฝั่งเซิร์ฟเวอร์จริง (ไม่ใช่แค่ซ่อนที่เบราว์เซอร์) เพื่อไม่ให้คนที่ถูกบล็อก
+# ส่งข้อความ/ขอเพิ่มเพื่อนทะลุมาได้ แม้จะออฟไลน์ตอนโดนบล็อกก็ตาม
+BLOCKS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "blocks.json")
+
+
+def load_blocks():
+    try:
+        with open(BLOCKS_FILE, "r", encoding="utf-8") as f:
+            saved = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return {}
+
+    if not isinstance(saved, dict):
+        return {}
+    result = {}
+    for code, blocked in saved.items():
+        if isinstance(code, str) and ONLINE_CODE_PATTERN.match(code) and isinstance(blocked, list):
+            result[code] = [c for c in blocked if isinstance(c, str) and ONLINE_CODE_PATTERN.match(c)]
+    return result
+
+
+def save_blocks():
+    try:
+        with open(BLOCKS_FILE, "w", encoding="utf-8") as f:
+            json.dump(blocked_codes, f, ensure_ascii=False, indent=2)
+    except OSError:
+        pass
+
+
+blocked_codes = load_blocks()
+
+
+def has_blocked(blocker_code, target_code):
+    return target_code in blocked_codes.get(blocker_code, [])
 
 
 def gen_online_code():
@@ -289,6 +336,12 @@ def admin_unban():
 def admin_delete_report():
     report_id = request.form.get("id")
     global reports
+    target = next((r for r in reports if r["id"] == report_id), None)
+    if target and target.get("evidence_filename"):
+        try:
+            os.remove(os.path.join(UPLOAD_DIR, target["evidence_filename"]))
+        except OSError:
+            pass
     reports = [r for r in reports if r["id"] != report_id]
     save_reports()
     return redirect(url_for("admin_dashboard"))
@@ -324,6 +377,7 @@ def api_my_reports():
             "time": r["time"],
             "reply": r.get("reply"),
             "reply_time": r.get("reply_time"),
+            "reported_code": r.get("reported_code"),
         }
         for r in reports
         if r.get("code") == code
@@ -379,6 +433,51 @@ def api_report():
     return jsonify({"ok": True})
 
 
+@app.route("/api/report-user", methods=["POST"])
+def api_report_user():
+    reporter_code = (request.form.get("code") or "").strip().upper()[:10]
+    reported_code = (request.form.get("reported_code") or "").strip().upper()
+    message = (request.form.get("message") or "").strip()[:500]
+
+    if not ONLINE_CODE_PATTERN.match(reported_code):
+        return jsonify({"error": "รหัสผู้ใช้ที่รายงานไม่ถูกต้อง"}), 400
+    if not message:
+        return jsonify({"error": "กรุณาอธิบายปัญหา"}), 400
+
+    evidence_filename = None
+    file = request.files.get("evidence")
+    if file and file.filename:
+        ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+        if ext not in ALLOWED_EVIDENCE_EXT:
+            return jsonify({"error": "แนบได้เฉพาะไฟล์รูปภาพ (png, jpg, jpeg, gif, webp)"}), 400
+        saved_name = f"{uuid.uuid4().hex}.{ext}"
+        save_path = os.path.join(UPLOAD_DIR, saved_name)
+        file.save(save_path)
+        if os.path.getsize(save_path) > MAX_EVIDENCE_BYTES:
+            os.remove(save_path)
+            return jsonify({"error": "ไฟล์ใหญ่เกินไป (ไม่เกิน 5MB)"}), 400
+        evidence_filename = saved_name
+
+    reports.append({
+        "id": uuid.uuid4().hex[:8],
+        "code": reporter_code or "ไม่ทราบ",
+        "message": message,
+        "time": datetime.now().strftime("%d/%m %H:%M"),
+        "reported_code": reported_code,
+        "evidence_filename": evidence_filename,
+    })
+    save_reports()
+    return jsonify({"ok": True})
+
+
+@app.route("/admin/evidence/<filename>")
+@admin_required
+def admin_evidence(filename):
+    if not EVIDENCE_FILENAME_PATTERN.match(filename):
+        return "", 404
+    return send_from_directory(UPLOAD_DIR, filename)
+
+
 @socketio.on("register_code")
 def on_register_code(data):
     requested_code = (data.get("code") or "").strip().upper()
@@ -401,7 +500,7 @@ def on_register_code(data):
 
     online_codes[code] = request.sid
     sid_to_code[request.sid] = code
-    emit("your_code", {"code": code})
+    emit("your_code", {"code": code, "blocked": blocked_codes.get(code, [])})
 
     # มีข้อความที่เพื่อนส่งมาตอนที่เรายังไม่ออนไลน์ค้างอยู่ไหม -> ส่งให้ตอนนี้เลย
     pending = friend_messages_pending.pop(code, [])
@@ -422,6 +521,11 @@ def on_friend_request(data):
 
     target_sid = online_codes.get(friend_code)
     if not target_sid:
+        emit("friend_error", {"message": "ไม่พบเพื่อนคนนี้ หรือเขาไม่ได้ออนไลน์ตอนนี้ (ต้องออนไลน์พร้อมกันตอนขอเพิ่มเพื่อน)"})
+        return
+
+    # ถ้าอีกฝั่งบล็อกเราไว้ -> ทำเหมือนหาไม่เจอ/ไม่ได้ออนไลน์ ไม่บอกตรงๆ ว่าโดนบล็อก
+    if has_blocked(friend_code, my_code):
         emit("friend_error", {"message": "ไม่พบเพื่อนคนนี้ หรือเขาไม่ได้ออนไลน์ตอนนี้ (ต้องออนไลน์พร้อมกันตอนขอเพิ่มเพื่อน)"})
         return
 
@@ -449,6 +553,9 @@ def on_friend_message(data):
     if not friend_code or not my_code or not text:
         return
 
+    if has_blocked(friend_code, my_code):
+        return
+
     msg = {"from": my_code, "text": text, "time": now_str()}
     target_sid = online_codes.get(friend_code)
     if target_sid:
@@ -461,7 +568,7 @@ def on_friend_message(data):
 def on_friend_typing(data):
     friend_code = (data.get("code") or "").strip().upper()
     my_code = sid_to_code.get(request.sid)
-    if not friend_code or not my_code:
+    if not friend_code or not my_code or has_blocked(friend_code, my_code):
         return
     target_sid = online_codes.get(friend_code)
     if target_sid:
@@ -472,11 +579,36 @@ def on_friend_typing(data):
 def on_friend_seen(data):
     friend_code = (data.get("code") or "").strip().upper()
     my_code = sid_to_code.get(request.sid)
-    if not friend_code or not my_code:
+    if not friend_code or not my_code or has_blocked(friend_code, my_code):
         return
     target_sid = online_codes.get(friend_code)
     if target_sid:
         emit("friend_seen", {"code": my_code}, room=target_sid)
+
+
+@socketio.on("block_user")
+def on_block_user(data):
+    target_code = (data.get("code") or "").strip().upper()
+    my_code = sid_to_code.get(request.sid)
+    if not target_code or not my_code or target_code == my_code:
+        return
+    blocked_codes.setdefault(my_code, [])
+    if target_code not in blocked_codes[my_code]:
+        blocked_codes[my_code].append(target_code)
+        save_blocks()
+    emit("blocked_list", {"blocked": blocked_codes[my_code]})
+
+
+@socketio.on("unblock_user")
+def on_unblock_user(data):
+    target_code = (data.get("code") or "").strip().upper()
+    my_code = sid_to_code.get(request.sid)
+    if not target_code or not my_code:
+        return
+    if my_code in blocked_codes and target_code in blocked_codes[my_code]:
+        blocked_codes[my_code].remove(target_code)
+        save_blocks()
+    emit("blocked_list", {"blocked": blocked_codes.get(my_code, [])})
 
 
 @socketio.on("disconnect")

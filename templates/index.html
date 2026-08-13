@@ -365,6 +365,33 @@
     transition: opacity 0.15s;
   }
   #friend-chat-back:active { opacity: 0.6; }
+  #friend-chat-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .friend-chat-actions { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+  .friend-chat-actions button {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 0.74rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    padding: 4px 2px;
+    transition: color 0.15s;
+  }
+  .friend-chat-actions button:hover { color: var(--text); }
+  #block-user-btn.is-blocked { color: var(--danger); }
+
+  #blocked-notice {
+    display: none;
+    flex-shrink: 0;
+    padding: 12px 16px;
+    font-size: 0.82rem;
+    color: var(--danger);
+    text-align: center;
+    background: rgba(255, 107, 129, 0.1);
+    border-top: 1px solid var(--border);
+  }
+
   #friend-messages {
     flex: 1;
     overflow-y: auto;
@@ -456,6 +483,15 @@
   .overlay-status { font-size: 0.8rem; margin: -6px 0 12px; min-height: 1.1em; }
   .overlay-status.success { color: #4caf82; }
   .overlay-status.error { color: var(--danger); }
+  .file-input-label { display: block; font-size: 0.78rem; color: var(--muted); text-align: left; margin-bottom: 14px; }
+  .file-input-label input[type="file"] {
+    display: block;
+    width: 100%;
+    margin-top: 6px;
+    font-size: 0.8rem;
+    color: var(--text);
+    font-family: inherit;
+  }
   .link-btn {
     background: none;
     border: none;
@@ -495,7 +531,7 @@
   .my-report-item .reply-label { font-size: 0.7rem; color: var(--muted); margin-bottom: 2px; }
 
   /* ---------- ธีมส่วนตัว (ผู้ใช้ปรับเอง เก็บเฉพาะเบราว์เซอร์นี้) ---------- */
-  #theme-overlay, #nickname-overlay, #report-overlay {
+  #theme-overlay, #nickname-overlay, #report-overlay, #report-user-overlay {
     display: none;
     position: absolute;
     inset: 0;
@@ -564,9 +600,14 @@
     <div id="friend-chat-info">
       <button id="friend-chat-back" type="button" title="กลับ">←</button>
       <span id="friend-chat-name"></span>
+      <div class="friend-chat-actions">
+        <button id="report-user-btn" type="button">รายงาน</button>
+        <button id="block-user-btn" type="button">บล็อก</button>
+      </div>
     </div>
     <div id="friend-messages"></div>
     <div id="friend-typing-indicator"></div>
+    <div id="blocked-notice">คุณบล็อกผู้ใช้นี้อยู่ จะส่ง/รับข้อความไม่ได้จนกว่าจะเลิกบล็อก</div>
     <form id="friend-send-form">
       <input type="text" id="friend-text-input" placeholder="พิมพ์ข้อความ..." autocomplete="off">
       <button type="submit" aria-label="ส่ง">➤</button>
@@ -641,6 +682,23 @@
       <div class="overlay-actions">
         <button id="report-cancel" type="button" class="btn btn-outline">ยกเลิก</button>
         <button id="report-submit" type="button" class="btn btn-primary">ส่งรายงาน</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="report-user-overlay">
+    <div class="overlay-card">
+      <div class="overlay-title">รายงานผู้ใช้</div>
+      <div class="overlay-text">กำลังรายงาน: <b id="report-user-target"></b></div>
+      <textarea id="report-user-text" maxlength="500" rows="4" placeholder="อธิบายว่าเกิดอะไรขึ้น..."></textarea>
+      <label class="file-input-label">
+        แนบหลักฐาน (รูปภาพ ไม่บังคับ ไม่เกิน 5MB)
+        <input type="file" id="report-user-evidence" accept="image/png,image/jpeg,image/gif,image/webp">
+      </label>
+      <div id="report-user-status" class="overlay-status"></div>
+      <div class="overlay-actions">
+        <button id="report-user-cancel" type="button" class="btn btn-outline">ยกเลิก</button>
+        <button id="report-user-submit" type="button" class="btn btn-primary">ส่งรายงาน</button>
       </div>
     </div>
   </div>
@@ -737,6 +795,7 @@
 
     // --- รหัสส่วนตัว (คงที่ถาวรต่อเบราว์เซอร์นี้) + แอดเพื่อน ---
     let myCode = "";
+    let myBlockedCodes = [];
     const myCodeEl = document.getElementById("my-code");
 
     socket.on("connect", () => {
@@ -745,9 +804,15 @@
 
     socket.on("your_code", (data) => {
       myCode = data.code;
+      myBlockedCodes = data.blocked || [];
       myCodeEl.textContent = myCode;
       localStorage.setItem("myChatCode", myCode);
       checkReportBadge();
+    });
+
+    socket.on("blocked_list", (data) => {
+      myBlockedCodes = data.blocked || [];
+      if (activeFriendCode) syncBlockedUi(activeFriendCode);
     });
 
     socket.on("banned", (data) => {
@@ -850,7 +915,11 @@
       for (const r of myReports) {
         const item = document.createElement("div");
         item.className = "my-report-item";
-        let html = `<div class="msg-text">${escapeHtml(r.message)}</div>`;
+        let html = "";
+        if (r.reported_code) {
+          html += `<div class="reply-label">รายงานผู้ใช้ ${escapeHtml(r.reported_code)}</div>`;
+        }
+        html += `<div class="msg-text">${escapeHtml(r.message)}</div>`;
         if (r.reply) {
           html += `<div class="reply-box"><div class="reply-label">แอดมินตอบกลับ · ${escapeHtml(r.reply_time || "")}</div>${escapeHtml(r.reply)}</div>`;
         }
@@ -898,6 +967,61 @@
         .catch(() => {
           reportStatusEl.textContent = "ส่งไม่สำเร็จ ลองใหม่อีกครั้ง";
           reportStatusEl.className = "overlay-status error";
+        });
+    });
+
+    // --- รายงานผู้ใช้ (แนบหลักฐานได้) ---
+    const reportUserOverlayEl = document.getElementById("report-user-overlay");
+    const reportUserTargetEl = document.getElementById("report-user-target");
+    const reportUserTextEl = document.getElementById("report-user-text");
+    const reportUserEvidenceEl = document.getElementById("report-user-evidence");
+    const reportUserStatusEl = document.getElementById("report-user-status");
+
+    document.getElementById("report-user-btn").addEventListener("click", () => {
+      if (!activeFriendCode) return;
+      reportUserTargetEl.textContent = getFriendLabel(activeFriendCode);
+      reportUserTextEl.value = "";
+      reportUserEvidenceEl.value = "";
+      reportUserStatusEl.textContent = "";
+      reportUserStatusEl.className = "overlay-status";
+      reportUserOverlayEl.style.display = "flex";
+    });
+
+    document.getElementById("report-user-cancel").addEventListener("click", () => {
+      reportUserOverlayEl.style.display = "none";
+    });
+
+    document.getElementById("report-user-submit").addEventListener("click", () => {
+      const message = reportUserTextEl.value.trim();
+      if (!message) {
+        reportUserStatusEl.textContent = "กรุณาอธิบายปัญหา";
+        reportUserStatusEl.className = "overlay-status error";
+        return;
+      }
+      const evidenceFile = reportUserEvidenceEl.files[0];
+      if (evidenceFile && evidenceFile.size > 5 * 1024 * 1024) {
+        reportUserStatusEl.textContent = "ไฟล์ใหญ่เกินไป (ไม่เกิน 5MB)";
+        reportUserStatusEl.className = "overlay-status error";
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("code", myCode);
+      formData.append("reported_code", activeFriendCode);
+      formData.append("message", message);
+      if (evidenceFile) formData.append("evidence", evidenceFile);
+
+      fetch("/api/report-user", { method: "POST", body: formData })
+        .then((res) => res.json().then((data) => ({ ok: res.ok, data })))
+        .then(({ ok, data }) => {
+          if (!ok) throw new Error(data.error || "");
+          reportUserStatusEl.textContent = "ส่งรายงานแล้ว ขอบคุณครับ";
+          reportUserStatusEl.className = "overlay-status success";
+          setTimeout(() => { reportUserOverlayEl.style.display = "none"; }, 1200);
+        })
+        .catch((err) => {
+          reportUserStatusEl.textContent = err.message || "ส่งไม่สำเร็จ ลองใหม่อีกครั้ง";
+          reportUserStatusEl.className = "overlay-status error";
         });
     });
 
@@ -1155,12 +1279,32 @@
       if (changed && activeFriendCode === code) renderFriendMessages();
     }
 
+    // --- บล็อกผู้ใช้ ---
+    const blockUserBtn = document.getElementById("block-user-btn");
+    const blockedNoticeEl = document.getElementById("blocked-notice");
+    const friendSendFormEl = document.getElementById("friend-send-form");
+
+    function syncBlockedUi(code) {
+      const isBlocked = myBlockedCodes.includes(code);
+      blockUserBtn.textContent = isBlocked ? "เลิกบล็อก" : "บล็อก";
+      blockUserBtn.classList.toggle("is-blocked", isBlocked);
+      blockedNoticeEl.style.display = isBlocked ? "block" : "none";
+      friendSendFormEl.style.display = isBlocked ? "none" : "flex";
+    }
+
+    blockUserBtn.addEventListener("click", () => {
+      if (!activeFriendCode) return;
+      const isBlocked = myBlockedCodes.includes(activeFriendCode);
+      socket.emit(isBlocked ? "unblock_user" : "block_user", { code: activeFriendCode });
+    });
+
     function openFriendChat(code) {
       activeFriendCode = code;
       document.getElementById("friend-chat-name").textContent = getFriendLabel(code);
       friendTypingEl.textContent = "";
       friendChatEl.style.display = "flex";
       syncLayout();
+      syncBlockedUi(code);
       renderFriendMessages();
       socket.emit("friend_seen", { code });
       markAllTheirsRead(code);

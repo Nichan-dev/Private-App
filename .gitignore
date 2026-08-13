@@ -5,3 +5,5 @@ __pycache__/
 theme_settings.json
 reports.json
 bans.json
+blocks.json
+uploads/

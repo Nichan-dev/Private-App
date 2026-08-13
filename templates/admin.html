@@ -88,7 +88,7 @@
   .report-reply-meta { font-size: 0.72rem; color: var(--muted); margin-bottom: 3px; }
   .report-reply-text { font-size: 0.86rem; white-space: pre-wrap; word-break: break-word; }
   .report-reply-form { display: flex; gap: 8px; margin-top: 10px; }
-  .report-reply-form input {
+  .report-reply-form input, .report-reply-form select {
     flex: 1;
     background: var(--field-bg);
     border: 1px solid var(--border);
@@ -111,6 +111,10 @@
     font-family: inherit;
     flex-shrink: 0;
   }
+  .report-reply-form button.danger-btn { background: var(--danger); }
+  .report-target { font-size: 0.76rem; color: var(--danger); font-weight: 600; margin-bottom: 4px; }
+  .report-evidence { display: inline-block; margin-top: 8px; font-size: 0.78rem; color: var(--primary); text-decoration: none; }
+  .report-evidence:hover { text-decoration: underline; }
 
   .ban-form {
     display: flex;
@@ -232,7 +236,13 @@
           <div class="report-row-top">
             <div class="report-body">
               <div class="report-meta">{{ r.time }} · รหัส {{ r.code }}</div>
+              {% if r.reported_code %}
+              <div class="report-target">รายงานผู้ใช้: {{ r.reported_code }}</div>
+              {% endif %}
               <div class="report-text">{{ r.message }}</div>
+              {% if r.evidence_filename %}
+              <a class="report-evidence" href="{{ url_for('admin_evidence', filename=r.evidence_filename) }}" target="_blank" rel="noopener">ดูหลักฐานแนบ (รูปภาพ)</a>
+              {% endif %}
             </div>
             <form method="post" action="{{ url_for('admin_delete_report') }}">
               <input type="hidden" name="id" value="{{ r.id }}">
@@ -250,6 +260,17 @@
             <input type="text" name="reply" maxlength="500" placeholder="{{ 'แก้ไขคำตอบ...' if r.reply else 'พิมพ์คำตอบกลับ...' }}" value="{{ r.reply or '' }}">
             <button type="submit">{{ 'แก้ไข' if r.reply else 'ตอบกลับ' }}</button>
           </form>
+          {% if r.reported_code %}
+          <form class="report-reply-form" method="post" action="{{ url_for('admin_ban') }}">
+            <input type="hidden" name="code" value="{{ r.reported_code }}">
+            <select name="duration">
+              {% for key, label in ban_duration_options.items() %}
+              <option value="{{ key }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+            <button type="submit" class="danger-btn">แบน {{ r.reported_code }}</button>
+          </form>
+          {% endif %}
         </div>
         {% endfor %}
       </div>
