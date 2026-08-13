@@ -1,6 +1,7 @@
 import eventlet
 eventlet.monkey_patch()
 
+import base64
 import json
 import os
 import random
@@ -11,8 +12,10 @@ from datetime import datetime
 
 from functools import wraps
 
+from cryptography.hazmat.primitives.asymmetric import ec
 from flask import Flask, jsonify, redirect, render_template, request, send_from_directory, session, url_for
 from flask_socketio import SocketIO, disconnect, emit
+from pywebpush import WebPushException, webpush
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-change-me")
@@ -250,6 +253,108 @@ def has_blocked(blocker_code, target_code):
     return target_code in blocked_codes.get(blocker_code, [])
 
 
+# --- Web Push (แจ้งเตือนได้แม้ปิดแท็บ/เบราว์เซอร์ไปแล้ว) ---
+# คู่กุญแจ VAPID นี้ใช้ยืนยันตัวตนตอนยิง push จริง ต้องคงที่ ไม่งั้น subscription เดิมของทุกคนจะใช้ไม่ได้
+# แนะนำตั้งเป็น env var VAPID_PRIVATE_KEY / VAPID_PUBLIC_KEY บน Render เพื่อให้อยู่ถาวรข้าม deploy
+# (ถ้าไม่ตั้ง จะสร้างคู่ใหม่อัตโนมัติแล้วเก็บลงไฟล์ไว้ก่อน แต่จะหายเมื่อ deploy ใหม่เหมือน state อื่นๆ ของแอปนี้)
+VAPID_KEYS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vapid_keys.json")
+VAPID_CLAIMS = {"sub": "mailto:admin@example.com"}
+
+
+def generate_vapid_keypair():
+    private_key = ec.generate_private_key(ec.SECP256R1())
+    public_key = private_key.public_key()
+
+    # py_vapid's Vapid.from_string() ต้องการ private key แบบ "raw" (base64url ของเลข scalar
+    # 32 ไบต์ตรงๆ) ไม่ใช่ PEM -- ใส่ผิดรูปแบบแล้วจะ parse ไม่ผ่านตอนยิง push จริง
+    priv_value = private_key.private_numbers().private_value
+    priv_raw = priv_value.to_bytes(32, "big")
+    priv_b64 = base64.urlsafe_b64encode(priv_raw).rstrip(b"=").decode()
+
+    numbers = public_key.public_numbers()
+    raw_public = b"\x04" + numbers.x.to_bytes(32, "big") + numbers.y.to_bytes(32, "big")
+    pub_b64 = base64.urlsafe_b64encode(raw_public).rstrip(b"=").decode()
+    return priv_b64, pub_b64
+
+
+def load_or_create_vapid_keys():
+    env_priv = os.environ.get("VAPID_PRIVATE_KEY")
+    env_pub = os.environ.get("VAPID_PUBLIC_KEY")
+    if env_priv and env_pub:
+        return env_priv, env_pub
+
+    try:
+        with open(VAPID_KEYS_FILE, "r", encoding="utf-8") as f:
+            saved = json.load(f)
+        if isinstance(saved, dict) and saved.get("private_b64") and saved.get("public_b64"):
+            return saved["private_b64"], saved["public_b64"]
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        pass
+
+    priv_b64, pub_b64 = generate_vapid_keypair()
+    try:
+        with open(VAPID_KEYS_FILE, "w", encoding="utf-8") as f:
+            json.dump({"private_b64": priv_b64, "public_b64": pub_b64}, f)
+    except OSError:
+        pass
+    return priv_b64, pub_b64
+
+
+VAPID_PRIVATE_KEY, VAPID_PUBLIC_KEY = load_or_create_vapid_keys()
+
+# push subscription ของแต่ละคน -> code -> subscription object (จาก PushManager.subscribe() ฝั่งเบราว์เซอร์)
+PUSH_SUBS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "push_subscriptions.json")
+
+
+def load_push_subs():
+    try:
+        with open(PUSH_SUBS_FILE, "r", encoding="utf-8") as f:
+            saved = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return {}
+    if not isinstance(saved, dict):
+        return {}
+    return {
+        code: sub for code, sub in saved.items()
+        if isinstance(code, str) and ONLINE_CODE_PATTERN.match(code) and isinstance(sub, dict)
+    }
+
+
+def save_push_subs():
+    try:
+        with open(PUSH_SUBS_FILE, "w", encoding="utf-8") as f:
+            json.dump(push_subscriptions, f, ensure_ascii=False, indent=2)
+    except OSError:
+        pass
+
+
+push_subscriptions = load_push_subs()
+
+
+def send_push(code, payload):
+    """ยิง push ไปหา code นี้ถ้าเคยสมัครรับไว้ ลบ subscription ทิ้งถ้าหมดอายุ/ใช้ไม่ได้แล้ว"""
+    sub = push_subscriptions.get(code)
+    if not sub:
+        return
+    try:
+        webpush(
+            subscription_info=sub,
+            data=json.dumps(payload),
+            vapid_private_key=VAPID_PRIVATE_KEY,
+            vapid_claims=dict(VAPID_CLAIMS),
+        )
+    except WebPushException as e:
+        status = getattr(e.response, "status_code", None) if e.response is not None else None
+        if status in (404, 410):
+            # subscription หมดอายุ/ถูกยกเลิกจากฝั่งเบราว์เซอร์แล้ว -> ลบทิ้ง
+            push_subscriptions.pop(code, None)
+            save_push_subs()
+    except Exception:
+        # ข้อมูล subscription ผิดรูปแบบ หรือปัญหาเครือข่ายอื่นๆ -> ไม่ควรทำให้ทั้งเซิร์ฟเวอร์ล่ม
+        # แค่เพราะส่ง push ไม่สำเร็จ (ผู้ใช้ยังคุยแชทได้ปกติ แค่ไม่ได้รับ push แจ้งเตือน)
+        pass
+
+
 def gen_online_code():
     while True:
         code = "".join(random.choices(ONLINE_CODE_ALPHABET, k=6))
@@ -259,7 +364,42 @@ def gen_online_code():
 
 @app.route("/")
 def index():
-    return render_template("index.html", theme=theme_context())
+    return render_template("index.html", theme=theme_context(), vapid_public_key=VAPID_PUBLIC_KEY)
+
+
+@app.route("/sw.js")
+def service_worker():
+    # เสิร์ฟจาก root path (ไม่ใช่ /static/sw.js) เพื่อให้ scope ครอบคลุมทั้งเว็บ
+    # ถ้าเสิร์ฟจาก /static/ ตัว service worker จะควบคุมได้แค่ path ใต้ /static/ เท่านั้น
+    response = send_from_directory(app.static_folder, "sw.js")
+    response.headers["Content-Type"] = "application/javascript"
+    return response
+
+
+@app.route("/api/vapid-public-key")
+def api_vapid_public_key():
+    return jsonify({"key": VAPID_PUBLIC_KEY})
+
+
+@app.route("/api/push-subscribe", methods=["POST"])
+def api_push_subscribe():
+    data = request.get_json(silent=True) or {}
+    code = (data.get("code") or "").strip().upper()
+    subscription = data.get("subscription")
+    if not ONLINE_CODE_PATTERN.match(code) or not isinstance(subscription, dict):
+        return jsonify({"error": "ข้อมูลไม่ถูกต้อง"}), 400
+    push_subscriptions[code] = subscription
+    save_push_subs()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/push-unsubscribe", methods=["POST"])
+def api_push_unsubscribe():
+    data = request.get_json(silent=True) or {}
+    code = (data.get("code") or "").strip().upper()
+    push_subscriptions.pop(code, None)
+    save_push_subs()
+    return jsonify({"ok": True})
 
 
 def admin_required(view):
@@ -583,6 +723,7 @@ def on_friend_message(data):
         emit("friend_message", msg, room=target_sid)
     else:
         friend_messages_pending.setdefault(friend_code, []).append(msg)
+        send_push(friend_code, {"type": "friend_message", "code": my_code})
 
 
 @socketio.on("friend_typing")

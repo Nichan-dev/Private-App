@@ -7,3 +7,5 @@ reports.json
 bans.json
 blocks.json
 uploads/
+vapid_keys.json
+push_subscriptions.json

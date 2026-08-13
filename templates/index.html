@@ -506,6 +506,7 @@
     transition: color 0.15s;
   }
   .link-btn:hover { color: var(--text); }
+  .link-btn.is-active { color: var(--primary); }
   .link-btn.has-badge::after {
     content: "";
     display: inline-block;
@@ -590,6 +591,7 @@
     </div>
 
     <div id="error"></div>
+    <button id="push-toggle-btn" type="button" class="link-btn" style="display: none;">เปิดการแจ้งเตือน</button>
     <button id="report-problem-btn" type="button" class="link-btn">รายงานปัญหา</button>
   </div>
 
@@ -727,6 +729,96 @@
         n.onclick = () => { window.focus(); n.close(); };
       } catch {}
     }
+
+    // --- แจ้งเตือนแบบ Push (ทำงานได้แม้ปิดแท็บ/เบราว์เซอร์ไปแล้ว ผ่าน Service Worker) ---
+    const VAPID_PUBLIC_KEY = "{{ vapid_public_key }}";
+    let swRegistration = null;
+
+    // เก็บ code+ชื่อเล่นของเพื่อนไว้ใน IndexedDB ด้วย (นอกจาก localStorage) เพราะ Service Worker
+    // เข้าถึง localStorage ไม่ได้ แต่เข้าถึง IndexedDB ได้ -- ใช้ตอนสร้างข้อความแจ้งเตือนให้ขึ้นชื่อเล่นแทนรหัส
+    function openFriendsDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open("chatAppDB", 1);
+        req.onupgradeneeded = () => {
+          if (!req.result.objectStoreNames.contains("friends")) {
+            req.result.createObjectStore("friends", { keyPath: "code" });
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    function syncFriendsToIndexedDB() {
+      if (!("indexedDB" in window)) return;
+      const friends = getFriends();
+      openFriendsDB().then((db) => {
+        const tx = db.transaction("friends", "readwrite");
+        const store = tx.objectStore("friends");
+        store.clear();
+        for (const f of friends) {
+          store.put({ code: f.code, nickname: f.nickname || "" });
+        }
+      }).catch(() => {});
+    }
+
+    function urlBase64ToUint8Array(base64String) {
+      const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+      const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+      const rawData = atob(base64);
+      const outputArray = new Uint8Array(rawData.length);
+      for (let i = 0; i < rawData.length; i++) outputArray[i] = rawData.charCodeAt(i);
+      return outputArray;
+    }
+
+    const pushToggleBtn = document.getElementById("push-toggle-btn");
+
+    function updatePushButtonUi() {
+      if (!swRegistration) return;
+      swRegistration.pushManager.getSubscription().then((sub) => {
+        pushToggleBtn.textContent = sub ? "ปิดการแจ้งเตือน" : "เปิดการแจ้งเตือน";
+        pushToggleBtn.classList.toggle("is-active", !!sub);
+      });
+    }
+
+    if ("serviceWorker" in navigator && "PushManager" in window && VAPID_PUBLIC_KEY) {
+      pushToggleBtn.style.display = "block";
+      navigator.serviceWorker.register("/sw.js").then((reg) => {
+        swRegistration = reg;
+        updatePushButtonUi();
+      }).catch(() => {});
+    }
+
+    pushToggleBtn.addEventListener("click", async () => {
+      if (!swRegistration || !myCode) return;
+      const existing = await swRegistration.pushManager.getSubscription();
+      if (existing) {
+        await existing.unsubscribe().catch(() => {});
+        fetch("/api/push-unsubscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: myCode }),
+        }).catch(() => {});
+        updatePushButtonUi();
+        return;
+      }
+
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") { updatePushButtonUi(); return; }
+
+      try {
+        const sub = await swRegistration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        });
+        await fetch("/api/push-subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: myCode, subscription: sub.toJSON() }),
+        });
+      } catch (e) {}
+      updatePushButtonUi();
+    });
 
     // --- ธีมส่วนตัวของผู้ใช้ (เก็บใน localStorage เฉพาะเบราว์เซอร์นี้ ไม่กระทบธีมกลางที่แอดมินตั้งให้คนอื่น) ---
     const MY_THEME_KEY = "myTheme";
@@ -1098,6 +1190,7 @@
 
     function renderFriends() {
       const friends = getFriends();
+      syncFriendsToIndexedDB();
       const section = document.getElementById("friends-section");
       const list = document.getElementById("friends-list");
       list.innerHTML = "";
