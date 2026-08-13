@@ -5,7 +5,6 @@ import json
 import os
 import random
 import re
-import string
 import time
 import uuid
 from datetime import datetime
@@ -13,16 +12,13 @@ from datetime import datetime
 from functools import wraps
 
 from flask import Flask, jsonify, redirect, render_template, request, session, url_for
-from flask_socketio import SocketIO, disconnect, join_room, leave_room, emit
+from flask_socketio import SocketIO, disconnect, emit
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-change-me")
 socketio = SocketIO(app, async_mode="eventlet", cors_allowed_origins="*")
 
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "changeme")
-
-# room_code -> {"members": {sid: name}, "label": str}
-rooms = {}
 
 # รหัสส่วนตัวของแต่ละคนที่ออนไลน์อยู่ตอนนี้ (ไว้แอดเพื่อน)
 ONLINE_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"  # ตัดตัวที่สับสนง่าย เช่น O/0, I/1
@@ -33,7 +29,6 @@ sid_to_code = {}    # sid -> code
 # (เก็บแค่ในหน่วยความจำ ถ้าเซิร์ฟเวอร์รีสตาร์ท/พักตัว ข้อความที่ค้างจะหายไป)
 friend_messages_pending = {}  # code -> [{"from": code, "text": str, "time": str}, ...]
 
-CODE_PATTERN = re.compile(r"^[A-Za-z0-9_-]{3,20}$")
 ONLINE_CODE_PATTERN = re.compile(r"^[A-Z2-9]{6}$")
 
 # ธีม UI (สี/ฟอนต์) ที่แอดมินปรับแต่งได้ ใช้ร่วมกันทั้งหน้าผู้ใช้และหน้าแอดมิน
@@ -195,13 +190,6 @@ def ban_info(code):
     return until
 
 
-def gen_room_code():
-    while True:
-        code = "".join(random.choices(string.digits, k=6))
-        if code not in rooms:
-            return code
-
-
 def gen_online_code():
     while True:
         code = "".join(random.choices(ONLINE_CODE_ALPHABET, k=6))
@@ -244,14 +232,6 @@ def admin_logout():
 @app.route("/admin")
 @admin_required
 def admin_dashboard():
-    room_list = [
-        {
-            "code": code,
-            "label": info["label"],
-            "members": list(info["members"].values()),
-        }
-        for code, info in rooms.items()
-    ]
     pending_list = [
         {"code": code, "count": len(msgs)}
         for code, msgs in friend_messages_pending.items()
@@ -267,7 +247,6 @@ def admin_dashboard():
     return render_template(
         "admin.html",
         online_count=len(online_codes),
-        room_list=room_list,
         pending_list=pending_list,
         reports=list(reversed(reports)),
         banned_list=banned_list,
@@ -381,25 +360,6 @@ def admin_theme():
     return render_template("admin_theme.html", theme=theme_context(), error=error)
 
 
-@app.route("/api/create-room", methods=["POST"])
-def create_room():
-    data = request.get_json(silent=True) or {}
-    custom_code = (data.get("code") or "").strip()
-    label = (data.get("label") or "").strip()[:40]
-
-    if custom_code:
-        if not CODE_PATTERN.match(custom_code):
-            return jsonify({"error": "รหัสห้องต้องเป็นตัวอักษร/ตัวเลข 3-20 ตัว (a-z, 0-9, -, _)"}), 400
-        if custom_code in rooms:
-            return jsonify({"error": "รหัสห้องนี้มีคนใช้อยู่แล้ว ลองรหัสอื่น"}), 409
-        code = custom_code
-    else:
-        code = gen_room_code()
-
-    rooms[code] = {"members": {}, "label": label}
-    return jsonify({"room": code, "label": label})
-
-
 @app.route("/api/report", methods=["POST"])
 def api_report():
     data = request.get_json(silent=True) or {}
@@ -497,64 +457,6 @@ def on_friend_message(data):
         friend_messages_pending.setdefault(friend_code, []).append(msg)
 
 
-@socketio.on("join")
-def on_join(data):
-    room = (data.get("room") or "").strip()
-    name = (data.get("name") or "ไม่ระบุชื่อ").strip()[:30]
-
-    if room not in rooms:
-        emit("join_error", {"message": "ไม่พบห้องนี้ ตรวจสอบรหัสห้องอีกครั้ง"})
-        return
-
-    if len(rooms[room]["members"]) >= 2:
-        emit("join_error", {"message": "ห้องนี้เต็มแล้ว (มีคนคุยอยู่ 2 คนแล้ว)"})
-        return
-
-    join_room(room)
-    rooms[room]["members"][request.sid] = name
-
-    emit("joined", {"room": room, "name": name, "label": rooms[room]["label"]})
-    emit(
-        "system",
-        {"text": f"{name} เข้าห้องแล้ว", "time": now_str()},
-        room=room,
-    )
-
-
-@socketio.on("message")
-def on_message(data):
-    room = data.get("room")
-    text = (data.get("text") or "").strip()
-    if not room or room not in rooms or request.sid not in rooms[room]["members"]:
-        return
-    if not text:
-        return
-    name = rooms[room]["members"][request.sid]
-    emit(
-        "message",
-        {"name": name, "text": text, "time": now_str()},
-        room=room,
-    )
-
-
-@socketio.on("typing")
-def on_typing(data):
-    room = data.get("room")
-    if not room or room not in rooms or request.sid not in rooms[room]["members"]:
-        return
-    name = rooms[room]["members"][request.sid]
-    emit("typing", {"name": name, "typing": bool(data.get("typing"))}, room=room, include_self=False)
-
-
-@socketio.on("seen")
-def on_seen(data):
-    room = data.get("room")
-    if not room or room not in rooms or request.sid not in rooms[room]["members"]:
-        return
-    reader_name = rooms[room]["members"][request.sid]
-    emit("seen", {"name": reader_name}, room=room, include_self=False)
-
-
 @socketio.on("friend_typing")
 def on_friend_typing(data):
     friend_code = (data.get("code") or "").strip().upper()
@@ -582,14 +484,6 @@ def on_disconnect():
     code = sid_to_code.pop(request.sid, None)
     if code:
         online_codes.pop(code, None)
-
-    for room, info in list(rooms.items()):
-        if request.sid in info["members"]:
-            name = info["members"].pop(request.sid)
-            emit("system", {"text": f"{name} ออกจากห้องแล้ว", "time": now_str()}, room=room)
-            leave_room(room)
-            if not info["members"]:
-                rooms.pop(room, None)
 
 
 def now_str():

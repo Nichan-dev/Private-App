@@ -179,10 +179,6 @@
         <div class="label">คนออนไลน์</div>
       </div>
       <div class="stat-card">
-        <div class="num">{{ room_list|length }}</div>
-        <div class="label">ห้องแชทที่เปิดอยู่</div>
-      </div>
-      <div class="stat-card">
         <div class="num">{{ pending_list|sum(attribute='count') }}</div>
         <div class="label">ข้อความค้างส่ง (เพื่อนออฟไลน์)</div>
       </div>
@@ -259,24 +255,6 @@
       </div>
       {% else %}
       <div class="empty">ยังไม่มีรายงานปัญหา</div>
-      {% endif %}
-    </section>
-
-    <section>
-      <h2>ห้องแชทที่เปิดอยู่</h2>
-      {% if room_list %}
-      <table>
-        <tr><th>รหัสห้อง</th><th>ชื่อห้อง</th><th>สมาชิก</th></tr>
-        {% for room in room_list %}
-        <tr>
-          <td>{{ room.code }}</td>
-          <td>{{ room.label or "-" }}</td>
-          <td>{{ room.members|join(", ") if room.members else "-" }}</td>
-        </tr>
-        {% endfor %}
-      </table>
-      {% else %}
-      <div class="empty">ไม่มีห้องแชทที่เปิดอยู่ตอนนี้</div>
       {% endif %}
     </section>
 

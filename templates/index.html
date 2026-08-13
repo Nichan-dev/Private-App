@@ -58,7 +58,7 @@
   }
 
   /* บนมือถือ/จอแคบ ตัว wrapper สองอันนี้จะ "หายไป" (display: contents) ทำให้
-     #setup / #chat / #friend-chat / #empty-state เป็น flex child ของ #app โดยตรง
+     #setup / #friend-chat / #empty-state เป็น flex child ของ #app โดยตรง
      เหมือนเดิมทุกอย่าง — จะกลายเป็นเลย์เอาต์แบบไซด์บาร์ก็ต่อเมื่อจอกว้างพอ (ดู media query ด้านล่าง) */
   #app-body, #main-pane { display: contents; }
   #empty-state { display: none; }
@@ -163,14 +163,6 @@
     flex-direction: column;
     gap: 8px;
   }
-  .field-label {
-    font-size: 0.72rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--muted);
-    margin: 14px 0 2px;
-  }
   #setup input {
     width: 100%;
     padding: 13px 14px;
@@ -188,7 +180,6 @@
     border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
     background: var(--field-bg-focus);
   }
-  .name-row { margin-bottom: 4px; }
 
   .section-card {
     margin-top: 14px;
@@ -242,48 +233,6 @@
     font-weight: 600;
   }
 
-  /* ---------- Chat screen ---------- */
-  #chat { display: none; flex-direction: column; flex: 1; min-height: 0; }
-
-  #room-info {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 10px 16px;
-    font-size: 0.78rem;
-    color: var(--muted);
-    background: var(--card);
-    border-bottom: 1px solid var(--border);
-  }
-  #room-label { font-weight: 700; color: var(--text); }
-  #room-code-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    background: rgba(var(--primary-rgb), 0.16);
-    color: var(--primary);
-    font-weight: 700;
-    padding: 3px 10px;
-    border-radius: 999px;
-    cursor: pointer;
-    border: none;
-    font-size: 0.78rem;
-    font-family: inherit;
-    transition: transform 0.15s;
-  }
-  #room-code-pill:active { transform: scale(0.96); }
-
-  #messages {
-    flex: 1;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding: 18px 16px;
-    background: var(--bg-top);
-  }
   .msg {
     max-width: 78%;
     padding: 10px 14px;
@@ -324,17 +273,8 @@
     border: 1px solid var(--border);
     border-bottom-left-radius: 4px;
   }
-  .msg.system {
-    align-self: center;
-    background: transparent;
-    color: var(--muted);
-    font-size: 0.72rem;
-    padding: 4px 10px;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-  }
 
-  #typing-indicator, #friend-typing-indicator {
+  #friend-typing-indicator {
     flex-shrink: 0;
     font-size: 0.78rem;
     color: var(--muted);
@@ -356,45 +296,6 @@
     0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
     30% { transform: translateY(-3px); opacity: 1; }
   }
-
-  #send-form {
-    flex-shrink: 0;
-    display: flex;
-    gap: 8px;
-    padding: 12px 14px;
-    border-top: 1px solid var(--border);
-    background: var(--card);
-  }
-  #send-form input {
-    flex: 1;
-    padding: 12px 16px;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    background: var(--field-bg);
-    color: var(--text);
-    font-size: 0.95rem;
-    outline: none;
-    font-family: inherit;
-    transition: border-color 0.15s, background 0.15s;
-  }
-  #send-form input::placeholder { color: var(--muted); }
-  #send-form input:focus { border-color: color-mix(in srgb, var(--primary) 55%, var(--border)); background: var(--field-bg-focus); }
-  #send-form button {
-    width: 42px;
-    height: 42px;
-    flex-shrink: 0;
-    border-radius: 50%;
-    border: none;
-    background: var(--primary);
-    color: white;
-    font-size: 1.05rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: opacity 0.15s, transform 0.15s;
-  }
-  #send-form button:active { opacity: 0.85; transform: scale(0.95); }
 
   /* ---------- Friends list ---------- */
   #friend-request-status { min-height: 1.1em; font-size: 0.8rem; color: var(--muted); margin-top: 6px; }
@@ -640,11 +541,6 @@
 
   <div id="app-body">
   <div id="setup">
-    <div class="name-row">
-      <div class="field-label">ชื่อของคุณ</div>
-      <input type="text" id="name-input" placeholder="เช่น เก่ง" maxlength="30">
-    </div>
-
     <div class="section-card">
       <div class="section-title">แอดเพื่อนด้วยรหัส</div>
       <input type="text" id="friend-code-input" placeholder="ใส่รหัสของเพื่อน (6 ตัว)" maxlength="6" style="text-transform: uppercase;">
@@ -657,40 +553,12 @@
       <div id="friends-list"></div>
     </div>
 
-    <div class="section-card">
-      <div class="section-title">สร้างห้องใหม่</div>
-      <input type="text" id="room-label-input" placeholder="ชื่อห้อง (ไม่บังคับ) เช่น คุยกับเก่ง" maxlength="40">
-      <input type="text" id="custom-code-input" placeholder="ตั้งรหัสห้องเอง (ไม่บังคับ)" maxlength="20" style="margin-top: 8px;">
-      <button id="create-btn" type="button" class="btn btn-outline">สร้างห้อง</button>
-    </div>
-
-    <div class="section-card">
-      <div class="section-title">เข้าห้องที่มีอยู่</div>
-      <input type="text" id="room-input" placeholder="ใส่รหัสห้องเพื่อนที่นี่" maxlength="20">
-      <button id="join-btn" type="button" class="btn btn-outline">เข้าห้อง</button>
-    </div>
-
     <div id="error"></div>
     <button id="report-problem-btn" type="button" class="link-btn">รายงานปัญหา</button>
   </div>
 
   <div id="main-pane">
-  <div id="empty-state">เลือกเพื่อน หรือสร้าง/เข้าห้องแชท<br>เพื่อเริ่มคุยกัน</div>
-
-  <div id="chat">
-    <div id="room-info">
-      <span id="room-label"></span>
-      <button id="room-code-pill" type="button" title="แตะเพื่อคัดลอก">
-        <span id="room-code"></span> คัดลอก
-      </button>
-    </div>
-    <div id="messages"></div>
-    <div id="typing-indicator"></div>
-    <form id="send-form">
-      <input type="text" id="text-input" placeholder="พิมพ์ข้อความ..." autocomplete="off">
-      <button type="submit" aria-label="ส่ง">➤</button>
-    </form>
-  </div>
+  <div id="empty-state">เลือกเพื่อนเพื่อเริ่มคุยกัน</div>
 
   <div id="friend-chat">
     <div id="friend-chat-info">
@@ -788,7 +656,6 @@
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <script>
     const socket = io();
-    let myName = "";
 
     // --- แจ้งเตือนข้อความใหม่ผ่าน Browser Notification (สำหรับคนที่เปิดเว็บทิ้งไว้) ---
     if ("Notification" in window && Notification.permission === "default") {
@@ -845,11 +712,8 @@
     applyMyTheme();
 
     const setupEl = document.getElementById("setup");
-    const chatEl = document.getElementById("chat");
     const emptyStateEl = document.getElementById("empty-state");
     const errorEl = document.getElementById("error");
-    const messagesEl = document.getElementById("messages");
-    const roomCodeEl = document.getElementById("room-code");
 
     // --- เลย์เอาต์แบบไซด์บาร์บนจอกว้าง (คอม/แล็ปท็อป) ---
     function isDesktopLayout() {
@@ -859,7 +723,7 @@
     // เรียกทุกครั้งที่มีการเปิด/ปิดแชท หรือ resize หน้าต่าง เพื่อให้ไซด์บาร์กับ
     // "เลือกแชทเพื่อเริ่มคุย" แสดงถูกต้องตามขนาดจอปัจจุบันเสมอ
     function syncLayout() {
-      const chatVisible = chatEl.style.display === "flex" || friendChatEl.style.display === "flex";
+      const chatVisible = friendChatEl.style.display === "flex";
       if (isDesktopLayout()) {
         setupEl.style.display = "flex";
         emptyStateEl.style.display = chatVisible ? "none" : "flex";
@@ -870,35 +734,6 @@
     }
 
     window.addEventListener("resize", syncLayout);
-
-    document.getElementById("create-btn").onclick = async () => {
-      errorEl.textContent = "";
-      const label = document.getElementById("room-label-input").value.trim();
-      const code = document.getElementById("custom-code-input").value.trim();
-      const res = await fetch("/api/create-room", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ label, code }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        errorEl.textContent = data.error || "สร้างห้องไม่สำเร็จ";
-        return;
-      }
-      document.getElementById("room-input").value = data.room;
-      doJoin(data.room);
-    };
-
-    document.getElementById("join-btn").onclick = () => {
-      errorEl.textContent = "";
-      const room = document.getElementById("room-input").value.trim();
-      if (!room) { errorEl.textContent = "กรอกรหัสห้องก่อนครับ"; return; }
-      doJoin(room);
-    };
-
-    document.getElementById("room-input").addEventListener("keydown", (e) => {
-      if (e.key === "Enter") { e.preventDefault(); document.getElementById("join-btn").click(); }
-    });
 
     // --- รหัสส่วนตัว (คงที่ถาวรต่อเบราว์เซอร์นี้) + แอดเพื่อน ---
     let myCode = "";
@@ -1324,7 +1159,6 @@
       activeFriendCode = code;
       document.getElementById("friend-chat-name").textContent = getFriendLabel(code);
       friendTypingEl.textContent = "";
-      chatEl.style.display = "none";
       friendChatEl.style.display = "flex";
       syncLayout();
       renderFriendMessages();
@@ -1441,121 +1275,11 @@
         : "";
     });
 
-    function doJoin(room) {
-      myName = document.getElementById("name-input").value.trim() || "ไม่ระบุชื่อ";
-      socket.emit("join", { room, name: myName });
-    }
-
-    socket.on("join_error", (data) => {
-      errorEl.textContent = data.message;
-    });
-
-    socket.on("joined", (data) => {
-      chatEl.style.display = "flex";
-      syncLayout();
-      roomCodeEl.textContent = data.room;
-      document.getElementById("room-label").textContent = data.label ? data.label : "ห้องแชท";
-      window._room = data.room;
-    });
-
-    document.getElementById("room-code-pill").addEventListener("click", () => {
-      const code = roomCodeEl.textContent;
-      if (navigator.clipboard) navigator.clipboard.writeText(code).catch(() => {});
-    });
-
-    socket.on("system", (data) => {
-      addMessage({ system: true, text: data.text, time: data.time });
-    });
-
-    let lastMineMsgEl = null;
-    let hasUnseenIncoming = false;
-
-    socket.on("message", (data) => {
-      const mine = data.name === myName;
-      const div = addMessage({ mine, name: data.name, text: data.text, time: data.time });
-      if (mine) {
-        lastMineMsgEl = div;
-      } else if (document.visibilityState === "visible") {
-        socket.emit("seen", { room: window._room });
-      } else {
-        hasUnseenIncoming = true;
-      }
-      if (!mine && !document.hasFocus()) {
-        notifyNewMessage(data.name || "ข้อความใหม่", data.text);
-      }
-    });
-
-    socket.on("seen", () => {
-      if (lastMineMsgEl) {
-        const seenEl = lastMineMsgEl.querySelector(".seen");
-        if (seenEl) seenEl.textContent = "อ่านแล้ว ✓✓";
-      }
-    });
-
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible" && hasUnseenIncoming) {
-        socket.emit("seen", { room: window._room });
-        hasUnseenIncoming = false;
-      }
-    });
-
-    function addMessage({ system, mine, name, text, time }) {
-      const div = document.createElement("div");
-      div.className = "msg " + (system ? "system" : mine ? "me" : "them");
-      if (system) {
-        div.textContent = text;
-      } else {
-        div.innerHTML = `<div class="meta">${mine ? "คุณ" : escapeHtml(name)} · ${time}</div>${escapeHtml(text)}` +
-          (mine ? `<div class="seen"></div>` : "");
-      }
-      messagesEl.appendChild(div);
-      messagesEl.scrollTop = messagesEl.scrollHeight;
-      return div;
-    }
-
     function escapeHtml(str) {
       const d = document.createElement("div");
       d.textContent = str;
       return d.innerHTML;
     }
-
-    document.getElementById("send-form").addEventListener("submit", (e) => {
-      e.preventDefault();
-      const input = document.getElementById("text-input");
-      const text = input.value.trim();
-      if (!text) return;
-      socket.emit("message", { room: window._room, text });
-      input.value = "";
-      stopTyping();
-    });
-
-    const typingEl = document.getElementById("typing-indicator");
-    let isTyping = false;
-    let typingTimeout = null;
-
-    document.getElementById("text-input").addEventListener("input", () => {
-      if (!isTyping) {
-        isTyping = true;
-        socket.emit("typing", { room: window._room, typing: true });
-      }
-      clearTimeout(typingTimeout);
-      typingTimeout = setTimeout(stopTyping, 1500);
-    });
-
-    function stopTyping() {
-      if (isTyping) {
-        isTyping = false;
-        socket.emit("typing", { room: window._room, typing: false });
-      }
-      clearTimeout(typingTimeout);
-    }
-
-    socket.on("typing", (data) => {
-      if (data.name === myName) return;
-      typingEl.innerHTML = data.typing
-        ? `${escapeHtml(data.name)} กำลังพิมพ์ <span class="typing-dots"><span></span><span></span><span></span></span>`
-        : "";
-    });
   </script>
 </body>
 </html>
