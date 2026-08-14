@@ -42,12 +42,13 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     getFriendNickname(code).then((nickname) => {
       const title = nickname && nickname.trim() ? nickname : code;
+      // tag ต้องไม่ซ้ำกันในแต่ละข้อความ ไม่งั้นข้อความใหม่จะ "ทับ" ของเก่าแทนที่จะโชว์แยกกัน
+      // (ถ้าอยากกลับไปให้ทับกันแบบเดิม ค่อยตัด Date.now() ออก)
       return self.registration.showNotification(title, {
         body: "ทักคุณมา",
         icon: "/static/icons/icon-192.png",
         badge: "/static/icons/badge-96.png",
-        tag: "friend-message-" + code,
-        renotify: true,
+        tag: "friend-message-" + code + "-" + Date.now(),
         data: { code },
       });
     })
