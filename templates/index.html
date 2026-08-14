@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Private Chat</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%23{{ theme.primary[1:] }}'/><text x='32' y='45' font-family='Arial, sans-serif' font-size='36' font-weight='700' fill='white' text-anchor='middle'>P</text></svg>">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+<meta name="theme-color" content="{{ theme.primary }}">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Private Chat">
+<meta name="mobile-web-app-capable" content="yes">
 <style>
   * { box-sizing: border-box; }
 
@@ -532,7 +539,7 @@
   .my-report-item .reply-label { font-size: 0.7rem; color: var(--muted); margin-bottom: 2px; }
 
   /* ---------- ธีมส่วนตัว (ผู้ใช้ปรับเอง เก็บเฉพาะเบราว์เซอร์นี้) ---------- */
-  #theme-overlay, #nickname-overlay, #report-overlay, #report-user-overlay {
+  #theme-overlay, #nickname-overlay, #report-overlay, #report-user-overlay, #push-permission-overlay {
     display: none;
     position: absolute;
     inset: 0;
@@ -711,6 +718,17 @@
       <div class="overlay-text" id="banned-text"></div>
     </div>
   </div>
+
+  <div id="push-permission-overlay">
+    <div class="overlay-card">
+      <div class="overlay-title">เปิดการแจ้งเตือน</div>
+      <div class="overlay-text">รับการแจ้งเตือนทันทีเมื่อเพื่อนทักมา แม้ปิดแท็บหรือปิดเบราว์เซอร์ไปแล้วก็ตาม</div>
+      <div class="overlay-actions">
+        <button id="push-permission-skip" type="button" class="btn btn-outline">ไว้ทีหลัง</button>
+        <button id="push-permission-allow" type="button" class="btn btn-primary">เปิดการแจ้งเตือน</button>
+      </div>
+    </div>
+  </div>
 </div>
 
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
@@ -789,6 +807,8 @@
       }).catch(() => {});
     }
 
+    const pushPermissionOverlayEl = document.getElementById("push-permission-overlay");
+
     pushToggleBtn.addEventListener("click", async () => {
       if (!swRegistration || !myCode) return;
       const existing = await swRegistration.pushManager.getSubscription();
@@ -802,6 +822,26 @@
         updatePushButtonUi();
         return;
       }
+
+      if (Notification.permission === "denied") {
+        // เบราว์เซอร์เคยถูกสั่งบล็อกไว้แล้ว จะเรียกขออนุญาตซ้ำไม่ได้ ต้องไปเปิดเองในตั้งค่า
+        const original = pushToggleBtn.textContent;
+        pushToggleBtn.textContent = "ถูกบล็อกไว้ เปิดในตั้งค่าเบราว์เซอร์";
+        setTimeout(() => { pushToggleBtn.textContent = original; }, 3000);
+        return;
+      }
+
+      // โชว์หน้าจออธิบายในธีมของเว็บเราเองก่อน ค่อยไปเปิด popup ขออนุญาตจริงของเบราว์เซอร์
+      // (popup จริงแต่งหน้าตาเองไม่ได้ นี่คือจุดที่ทำให้ดูดีขึ้นได้)
+      pushPermissionOverlayEl.style.display = "flex";
+    });
+
+    document.getElementById("push-permission-skip").addEventListener("click", () => {
+      pushPermissionOverlayEl.style.display = "none";
+    });
+
+    document.getElementById("push-permission-allow").addEventListener("click", async () => {
+      pushPermissionOverlayEl.style.display = "none";
 
       const permission = await Notification.requestPermission();
       if (permission !== "granted") { updatePushButtonUi(); return; }

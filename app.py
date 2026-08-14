@@ -376,6 +376,16 @@ def service_worker():
     return response
 
 
+@app.route("/manifest.json")
+def web_manifest():
+    # เสิร์ฟแบบ dynamic (ผ่าน Jinja) เพื่อให้สี theme_color/background_color ตรงกับธีมที่แอดมินตั้งไว้จริง
+    response = app.response_class(
+        render_template("manifest.json", theme=theme_context()),
+        mimetype="application/manifest+json",
+    )
+    return response
+
+
 @app.route("/api/vapid-public-key")
 def api_vapid_public_key():
     return jsonify({"key": VAPID_PUBLIC_KEY})

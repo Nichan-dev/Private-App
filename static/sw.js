@@ -44,6 +44,8 @@ self.addEventListener("push", (event) => {
       const title = nickname && nickname.trim() ? nickname : code;
       return self.registration.showNotification(title, {
         body: "ทักคุณมา",
+        icon: "/static/icons/icon-192.png",
+        badge: "/static/icons/badge-96.png",
         tag: "friend-message-" + code,
         renotify: true,
         data: { code },
